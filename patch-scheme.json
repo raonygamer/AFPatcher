@@ -1,0 +1,61 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "fully_qualified_name": {
+                "type": "string",
+                "default": "com.example.Example"
+            },
+            "patches": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "anchor_expression": {
+                            "type": "string",
+                            "default": ""
+                        },
+                        "scope_expression": {
+                            "type": "string",
+                            "default": "*"
+                        },
+                        "patch_method": {
+                            "type": "string",
+                            "enum": [
+                                "Replace",
+                                "Insert"
+                            ],
+                            "default": "Replace"
+                        },
+                        "insert_position": {
+                            "type": "string",
+                            "enum": [
+                                "After",
+                                "Before"
+                            ],
+                            "default": "After"
+                        },
+                        "final_expression": {
+                            "type": "string",
+                            "default": ""
+                        }
+                    },
+                    "required": [
+                        "anchor_expression",
+                        "scope_expression",
+                        "patch_method",
+                        "insert_position",
+                        "final_expression"
+                    ]
+                },
+                "default": []
+            }
+        },
+        "required": [
+            "fully_qualified_name",
+            "patches"
+        ]
+    }
+}

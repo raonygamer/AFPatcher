@@ -7,4 +7,13 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+      <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+      <PackageReference Include="SharpFileDialog" Version="2.0.0" />
+    </ItemGroup>
+
+    <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+      <Exec Command="xcopy $(SolutionDir)ffdec\ $(OutDir)ffdec\ /y /e /s /q" />
+    </Target>
+
 </Project>
