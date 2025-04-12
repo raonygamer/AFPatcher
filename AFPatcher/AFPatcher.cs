@@ -1894,7 +1894,7 @@ class AFPatcher
 					var flatScript = Util.FlattenString(ctx.ScriptText);
 					
 					// Searches for the function definition
-					var functionDefinitionMatch = Regex.Match(flatScript, @"public\s+function\s+cloakStart\s*\(.*?\)\s*:\s*\w+");
+					var functionDefinitionMatch = Regex.Match(flatScript, @"private\s+function\s+sendMessage\s*\(.*?\)\s*:\s*\w+");
 					if (!functionDefinitionMatch.Success)
 						return null;
                     
@@ -1942,6 +1942,30 @@ class AFPatcher
 						var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
 						flatScript = $"{first}{scopeText}{last}";
 					}
+					
+					return new PatchResult(flatScript);
+				})
+            ]),
+            new PatchDescriptor("camerafocus.StarlingCameraFocus", [
+				new Patch("Remove screen shaking", (ctx) =>
+				{
+					// Flattens script to remove new lines and carriage returns
+					var flatScript = Util.FlattenString(ctx.ScriptText);
+					
+					// Searches for the function definition
+					var functionDefinitionMatch = Regex.Match(flatScript, @"public\s+function\s+shake\s*\(.*?\)\s*:\s*\w+");
+					if (!functionDefinitionMatch.Success)
+						return null;
+                    
+					// Get function scope info
+					var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
+					if (scopeInfo is null)
+						return null;
+					
+					// Set empty scope
+					var first = flatScript.Substring(0, scopeInfo.Index);
+					var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
+					flatScript = $"{first}{{}}{last}";
 					
 					return new PatchResult(flatScript);
 				})
