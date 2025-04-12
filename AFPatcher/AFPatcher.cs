@@ -114,56 +114,41 @@ class AFPatcher
         return new GamePatches(
             new GlobalPatchContext(new Dictionary<string, string>()
             {
-                // Sets the ZOOM_FACTOR name globally
                 { "ZOOM_FACTOR", "zoomFactor" },
-                // Sets the CHECK_ZOOM_FACTOR name globally
                 { "CHECK_ZOOM_FACTOR", "checkZoom" },
-                // Sets the FITNESS_LINE identifier name globally
                 { "FITNESS_LINE", "fitnessLine" },
-                // Sets the CALCULATE_FITNESS_OF_LINE identifier name globally
                 { "CALCULATE_FITNESS_OF_LINE", "calculateFitnessOfLine" },
-                // Sets FITNESS_VALUE identifier name globally
                 { "FITNESS_VALUE", "fitnessValue" },
-                // Sets CALCULATE_FITNESS_VALUE identifier name globally
                 { "CALCULATE_FITNESS_VALUE", "calculateFitnessValue" },
-                // Sets PURIFIED_ARTS identifier name globally
                 { "PURIFIED_ARTS", "purifiedArts" },
-                // Sets PURIFY_BUTTON identifier name globally
                 { "PURIFY_BUTTON", "purifyButton" },
-                // Sets SAVE_STATS_BUTTON identifier name globally
                 { "SAVE_STATS_BUTTON", "saveStatsButton" },
-                // Sets FITNESS_INPUT identifier name globally
                 { "FITNESS_INPUT", "fitnessInput" },
-                // Sets LINE_INPUT identifier name globally
                 { "LINE_INPUT", "lineInput" },
-                // Sets STRENGTH_INPUT identifier name globally
                 { "STRENGTH_INPUT", "strengthInput" },
-                // Sets THIS_STRENGTH identifier name globally
                 { "THIS_STRENGTH", "thisStrength" },
-                // Sets THIS_FITNESS identifier name globally
                 { "THIS_FITNESS", "thisFitness" },
-                // Sets THIS_LINES identifier name globally
                 { "THIS_LINES", "thisLines" },
-                // Sets SAVE_STATS identifier name globally
                 { "SAVE_STATS", "saveStats" },
-                // Sets PURIFY_ARTS identifier name globally
                 { "PURIFY_ARTS", "purifyArts" },
-                // Sets ON_PURIFY_RECYCLE identifier name globally
                 { "ON_PURIFY_RECYCLE", "onPurifyRecycle" },
-                // Sets ON_PURIFY_MESSAGE identifier name globally
                 { "ON_PURIFY_MESSAGE", "onPurifyMessage" },
-                // Sets SHARED_OBJ identifier name globally
                 { "SHARED_OBJ", "sharedObj" },
-                // Sets SAVE_SHARED_OBJ identifier name globally
                 { "SAVE_SHARED_OBJ", "saveSharedObj" },
-                // Sets LOAD_SHARED_OBJ identifier name globally
                 { "LOAD_SHARED_OBJ", "loadSharedObj" },
-                // Sets SET_PURIFY_STATS identifier name globally
                 { "SET_PURIFY_STATS", "setPurifyStats" },
-                // Sets OPEN_PORTABLE_RECYCLE identifier name globally
                 { "OPEN_PORTABLE_RECYCLE", "openPortableRecycle" },
-                // Sets ECHO_VERSION identifier name globally
-                { "ECHO_VERSION", "1718" },
+                { "ECHO_VERSION", "Server 1389 / v1.0.1" },
+                { "PAINT_MODE", "paintMode" },
+                { "SET_EXTENDED", "setExtended" },
+                { "SET_EXTREME", "setExtreme" },
+                { "SET_ORIGINAL", "setOriginal" },
+                { "SET_UNPAINT", "setUnpaint" },
+                { "UPDATE_VISUALS", "updateVisuals" },
+                { "TEST_DRIVE", "testDrive" },
+                { "CUSTOM_TEST_DRIVE", "customTestDrive" },
+                { "DELTA_TIME", "deltaTime" },
+                { "CLIENT_DEV_HUE_COLOR", "clientDevHueColor" },
             }),
             [
             new PatchDescriptor("core.scene.Game", [
@@ -198,6 +183,70 @@ class AFPatcher
                     }
                     
                     return new PatchResult(flatScript);
+                }), 
+                new Patch("Add DELTA_TIME variable", (ctx) =>
+                {
+	                // Gets the DELTA_TIME identifier name
+	                if (!ctx.GetGlobalContext().GetIdentifier("DELTA_TIME", out var deltaTimeIdentifier))
+		                return null;
+                    
+	                // The text to insert
+	                var insertingText = $@"public var {deltaTimeIdentifier}:Number = 0;";
+                    
+	                // Flattens script to remove new lines and carriage returns
+	                var flatScript = Util.FlattenString(ctx.ScriptText);
+                    
+	                // Add DELTA_TIME variable to core.scene.Game
+	                {
+		                // Tries to match Game class declaration
+		                var match = Regex.Match(flatScript, @"public class Game extends SceneBase{");
+		                if (match.Success)
+		                {
+			                // Sets the position to the end of the match
+			                var position = match.Index + match.Length;
+                            
+			                // Splits the first and the last part of the script text to insert text in between
+			                var firstPart = flatScript.Substring(0, position);
+			                var lastPart = flatScript.Substring(position);
+                            
+			                // Inserts text in between firstPart and lastPart
+			                flatScript = $"{firstPart}{insertingText}{lastPart}";
+		                }
+	                }
+                    
+	                return new PatchResult(flatScript);
+                }),
+                new Patch("Add CLIENT_DEV_HUE_COLOR variable", (ctx) =>
+                {
+	                // Gets the CLIENT_DEV_HUE_COLOR identifier name
+	                if (!ctx.GetGlobalContext().GetIdentifier("CLIENT_DEV_HUE_COLOR", out var clientDevHueColorIdentifier))
+		                return null;
+                    
+	                // The text to insert
+	                var insertingText = $@"public var {clientDevHueColorIdentifier}:Number = 0;";
+                    
+	                // Flattens script to remove new lines and carriage returns
+	                var flatScript = Util.FlattenString(ctx.ScriptText);
+                    
+	                // Add CLIENT_DEV_HUE_COLOR variable to core.scene.Game
+	                {
+		                // Tries to match Game class declaration
+		                var match = Regex.Match(flatScript, @"public class Game extends SceneBase{");
+		                if (match.Success)
+		                {
+			                // Sets the position to the end of the match
+			                var position = match.Index + match.Length;
+                            
+			                // Splits the first and the last part of the script text to insert text in between
+			                var firstPart = flatScript.Substring(0, position);
+			                var lastPart = flatScript.Substring(position);
+                            
+			                // Inserts text in between firstPart and lastPart
+			                flatScript = $"{firstPart}{insertingText}{lastPart}";
+		                }
+	                }
+                    
+	                return new PatchResult(flatScript);
                 }),
                 new Patch("Add SHARED_OBJ variable", (ctx) =>
                 {
@@ -231,7 +280,7 @@ class AFPatcher
                     
 	                return new PatchResult(flatScript);
                 }),
-                new Patch("Add THIS_STRENGTH, THIS_FITNESS, THIS_LINES variables", (ctx) =>
+                new Patch("Add THIS_STRENGTH, THIS_FITNESS, THIS_LINES variables (Primiano/Kaiser)", (ctx) =>
                 {
 	                // Gets the THIS_STRENGTH identifier name
 	                if (!ctx.GetGlobalContext().GetIdentifier("THIS_STRENGTH", out var thisStrengthIdentifier))
@@ -436,7 +485,46 @@ class AFPatcher
 	                
 	                return new PatchResult(flatScript);
                 }),
-                new Patch("Add OPEN_PORTABLE_RECYCLE function", (ctx) =>
+                new Patch("Add DELTA_TIME on update function", (ctx) =>
+                {
+	                // Gets the DELTA_TIME identifier name
+	                if (!ctx.GetGlobalContext().GetIdentifier("DELTA_TIME", out var deltaTimeIdentifier))
+		                return null;
+	                
+	                // Flattens script to remove new lines and carriage returns
+	                var flatScript = Util.FlattenString(ctx.ScriptText);
+                    
+	                // Searches for the function definition
+	                var functionDefinitionMatch = Regex.Match(flatScript, @"private\s+function\s+update\s*\(.*?\)\s*:\s*\w+");
+	                if (!functionDefinitionMatch.Success)
+		                return null;
+                    
+	                // Get function scope info
+	                var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
+	                if (scopeInfo is null)
+		                return null;
+                    
+	                var scopeText = scopeInfo.ScopeText;
+	                
+	                var textToInsert = $@"this.{deltaTimeIdentifier} = param1.passedTime;";
+
+	                {
+		                // Insert text
+		                var first = "{";
+		                var last = scopeText.Substring(1);
+		                scopeText = $"{first}{textToInsert}{last}";
+	                }
+
+	                {
+		                // Split original script and re-insert block of function
+		                var first = flatScript.Substring(0, scopeInfo.Index);
+		                var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
+		                flatScript = $"{first}{scopeText}{last}";
+	                }
+	                
+	                return new PatchResult(flatScript);
+                }),
+                new Patch("Add OPEN_PORTABLE_RECYCLE function (TheRealPancake)", (ctx) =>
                 {
 	                // Gets the OPEN_PORTABLE_RECYCLE identifier name
 	                if (!ctx.GetGlobalContext().GetIdentifier("OPEN_PORTABLE_RECYCLE", out var openPortableRecycleIdentifier))
@@ -473,7 +561,108 @@ class AFPatcher
 	                }
 	                
 	                return new PatchResult(flatScript);
-                })
+                }),
+                new Patch("Add PAINT_MODE variable (mufenz)", (ctx) =>
+                {
+	                // Gets the PAINT_MODE identifier name
+	                if (!ctx.GetGlobalContext().GetIdentifier("PAINT_MODE", out var paintModeIdentifier))
+		                return null;
+                    
+	                // The text to insert
+	                var insertingText = $@"public var {paintModeIdentifier}:String = ""Original"";";
+                    
+	                // Flattens script to remove new lines and carriage returns
+	                var flatScript = Util.FlattenString(ctx.ScriptText);
+                    
+	                // Add PAINT_MODE variable to core.scene.Game
+	                {
+		                // Tries to match Game class declaration
+		                var match = Regex.Match(flatScript, @"public class Game extends SceneBase{");
+		                if (match.Success)
+		                {
+			                // Sets the position to the end of the match
+			                var position = match.Index + match.Length;
+                            
+			                // Splits the first and the last part of the script text to insert text in between
+			                var firstPart = flatScript.Substring(0, position);
+			                var lastPart = flatScript.Substring(position);
+                            
+			                // Inserts text in between firstPart and lastPart
+			                flatScript = $"{firstPart}{insertingText}{lastPart}";
+		                }
+	                }
+                    
+	                return new PatchResult(flatScript);
+                }),
+                new Patch("Add [client_dev] thrust rainbow on tickUpdate function", (ctx) =>
+                {
+	                // Gets the DELTA_TIME identifier name
+	                if (!ctx.GetGlobalContext().GetIdentifier("DELTA_TIME", out var deltaTimeIdentifier))
+		                return null;
+	                
+	                // Gets the CLIENT_DEV_HUE_COLOR identifier name
+	                if (!ctx.GetGlobalContext().GetIdentifier("CLIENT_DEV_HUE_COLOR", out var clientDevHueColorIdentifier))
+		                return null;
+	                
+	                // Flattens script to remove new lines and carriage returns
+	                var flatScript = Util.FlattenString(ctx.ScriptText);
+                    
+	                // Searches for the function definition
+	                var functionDefinitionMatch = Regex.Match(flatScript, @"public\s+function\s+tickUpdate\s*\(.*?\)\s*:\s*\w+");
+	                if (!functionDefinitionMatch.Success)
+		                return null;
+                    
+	                // Get function scope info
+	                var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
+	                if (scopeInfo is null)
+		                return null;
+
+	                var scopeText = scopeInfo.ScopeText;
+	                var textToInsert = Util.FlattenString($@"
+						for each(var player in playerManager.players) {{
+							if(!(player.id != ""steam76561198188053594"" && player.id != ""steam76561199032900322"")) {{
+								if(player.ship != null && player.ship.engine != null && player.ship.engine.thrustEmitters != null && player.ship.engine.idleThrustEmitters != null) {{
+									for each(var emitter in player.ship.engine.thrustEmitters) {{
+										emitter.changeHue({clientDevHueColorIdentifier});
+									}}
+
+									for each(emitter in player.ship.engine.idleThrustEmitters) {{
+										emitter.changeHue({clientDevHueColorIdentifier});
+									}}
+								}}
+							}}
+						}}
+						{clientDevHueColorIdentifier} += {deltaTimeIdentifier} * 2;
+						if({clientDevHueColorIdentifier} >= Math.PI * 2) {{
+							{clientDevHueColorIdentifier} = 0;
+						}}
+					");
+
+	                {
+		                // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
+		                var anchorMatch = Regex.Match(scopeText,
+			                @"deathLineManager\.update\(\);()if\(pvpManager\s+!=\s+null\)");
+		            
+		                if (!anchorMatch.Success)
+			                return null;
+
+		                {
+			                // Insert text in between the strings
+			                var first = scopeText.Substring(0, anchorMatch.Groups[1].Index);
+			                var second = scopeText.Substring(anchorMatch.Groups[1].Index);
+			                scopeText = $"{first}{textToInsert}{second}";
+		                }
+	                }
+	                
+	                {
+		                // Split original script and re-insert block of function
+		                var first = flatScript.Substring(0, scopeInfo.Index);
+		                var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
+		                flatScript = $"{first}{scopeText}{last}";
+	                }
+	                
+	                return new PatchResult(flatScript);
+                }),
             ]),
             new PatchDescriptor("core.states.gameStates.PlayState", [
                 new Patch("Replace all camera zoomFocus calls for zoom", (ctx) =>
@@ -716,7 +905,7 @@ class AFPatcher
                 })
             ]),
             new PatchDescriptor("core.artifact.ArtifactStat", [
-                new Patch("Add FITNESS_LINE variable", (ctx) =>
+                new Patch("Add FITNESS_LINE variable (Primiano/Kaiser)", (ctx) =>
                 {
                     // Gets the fitness line identifier name
                     if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_LINE", out var fitnessLineIdentifier))
@@ -748,7 +937,7 @@ class AFPatcher
                     
                     return new PatchResult(flatScript);
                 }),
-                new Patch("Add CALCULATE_FITNESS_OF_LINE function", (ctx) =>
+                new Patch("Add CALCULATE_FITNESS_OF_LINE function (Primiano/Kaiser)", (ctx) =>
                 {
                     // Gets the CALCULATE_FITNESS_OF_LINE identifier name
                     if (!ctx.GetGlobalContext().GetIdentifier("CALCULATE_FITNESS_OF_LINE", out var calculateFitnessOfLineIdentifier))
@@ -926,7 +1115,7 @@ class AFPatcher
                     
                     return new PatchResult(flatScript);
                 }),
-                new Patch("Initialize FITNESS_LINE with CALCULATE_FITNESS_OF_LINE function on constructor", (ctx) =>
+                new Patch("Initialize FITNESS_LINE with CALCULATE_FITNESS_OF_LINE function on constructor (Primiano/Kaiser)", (ctx) =>
                 {
 	                // Gets the FITNESS_LINE identifier name
 	                if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_LINE", out var fitnessLineIdentifier))
@@ -970,7 +1159,7 @@ class AFPatcher
                 })
             ]),
             new PatchDescriptor("core.artifact.Artifact", [
-				new Patch("Add FITNESS_VALUE variable", (ctx) =>
+				new Patch("Add FITNESS_VALUE variable (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the fitness value identifier name
 					if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_VALUE", out var fitnessValueIdentifier))
@@ -1002,7 +1191,7 @@ class AFPatcher
                     
 					return new PatchResult(flatScript);
 				}),
-				new Patch("Change orderStatCountAsc ordering mode to unique artifacts", (ctx) =>
+				new Patch("Change orderStatCountAsc ordering mode to unique artifacts (Primiano/Kaiser)", (ctx) =>
 				{
 					// Flattens script to remove new lines and carriage returns
 					var flatScript = Util.FlattenString(ctx.ScriptText);
@@ -1051,7 +1240,7 @@ class AFPatcher
 					
 					return new PatchResult(flatScript);
 				}),
-				new Patch("Change orderStatCountDesc ordering mode to upgraded artifacts", (ctx) =>
+				new Patch("Change orderStatCountDesc ordering mode to upgraded artifacts (Primiano/Kaiser)", (ctx) =>
 				{
 					// Flattens script to remove new lines and carriage returns
 					var flatScript = Util.FlattenString(ctx.ScriptText);
@@ -1080,7 +1269,7 @@ class AFPatcher
 					
 					return new PatchResult(flatScript);
 				}),
-				new Patch("Change orderLevelLow ordering mode to fitness", (ctx) =>
+				new Patch("Change orderLevelLow ordering mode to fitness (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the fitness value identifier name
 					if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_VALUE", out var fitnessValueIdentifier))
@@ -1124,7 +1313,7 @@ class AFPatcher
 					
 					return new PatchResult(flatScript);
 				}),
-				new Patch("Add CALCULATE_FITNESS_VALUE function", (ctx) =>
+				new Patch("Add CALCULATE_FITNESS_VALUE function (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the CALCULATE_FITNESS_VALUE identifier name
 					if (!ctx.GetGlobalContext().GetIdentifier("CALCULATE_FITNESS_VALUE", out var calculateFitnessValueIdentifier))
@@ -1170,7 +1359,7 @@ class AFPatcher
 					
 					return new PatchResult(flatScript);
 				}),
-				new Patch("Add FITNESS_VALUE calculation to the update function", (ctx) =>
+				new Patch("Add FITNESS_VALUE calculation to the update function (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the FITNESS_VALUE identifier name
 					if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_VALUE", out var fitnessValueIdentifier))
@@ -1214,7 +1403,7 @@ class AFPatcher
 				})
             ]),
             new PatchDescriptor("core.artifact.ArtifactOverview", [
-				new Patch("Add PURIFIED_ARTS, PURIFY_BUTTON, SAVE_STATS_BUTTON, FITNESS_INPUT, LINE_INPUT, STRENGTH_INPUT variables", (ctx) =>
+				new Patch("Add PURIFIED_ARTS, PURIFY_BUTTON, SAVE_STATS_BUTTON, FITNESS_INPUT, LINE_INPUT, STRENGTH_INPUT variables (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the PURIFIED_ARTS identifier name
 					if (!ctx.GetGlobalContext().GetIdentifier("PURIFIED_ARTS", out var purifiedArtsIdentifier))
@@ -1273,7 +1462,7 @@ class AFPatcher
                     
 					return new PatchResult(flatScript);
 				}),
-				new Patch("Add purification components to drawComponents", (ctx) =>
+				new Patch("Add purification components to drawComponents (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the PURIFIED_ARTS identifier name
 					if (!ctx.GetGlobalContext().GetIdentifier("PURIFIED_ARTS", out var purifiedArtsIdentifier))
@@ -1385,7 +1574,7 @@ class AFPatcher
 
 					return new PatchResult(flatScript);
 				}),
-				new Patch("Add SAVE_STATS, PURIFY_ARTS, ON_PURIFY_RECYCLE, ON_PURIFY_MESSAGE functions", (ctx) =>
+				new Patch("Add SAVE_STATS, PURIFY_ARTS, ON_PURIFY_RECYCLE, ON_PURIFY_MESSAGE functions (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the PURIFIED_ARTS identifier name
 					if (!ctx.GetGlobalContext().GetIdentifier("PURIFIED_ARTS", out var purifiedArtsIdentifier))
@@ -1591,7 +1780,7 @@ class AFPatcher
 				})
             ]),
             new PatchDescriptor("core.artifact.ArtifactCargoBox", [
-				new Patch("Add Fitness stat on tooltip", (ctx) =>
+				new Patch("Add Fitness stat on tooltip (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the FITNESS_VALUE identifier name
 					if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_VALUE", out var fitnessValueIdentifier))
@@ -1644,7 +1833,7 @@ class AFPatcher
 				})
             ]),
             new PatchDescriptor("core.hud.components.chat.MessageLog", [
-				new Patch("Add echo. and [client_dev] tag to writeChatMsg", (ctx) =>
+				new Patch("Add echo. and [client_dev] tag to writeChatMsg (ryd3v)", (ctx) =>
 				{
 					// Gets the ECHO_VERSION identifier name
 					if (!ctx.GetGlobalContext().GetIdentifier("ECHO_VERSION", out var echoVersion))
@@ -1668,10 +1857,10 @@ class AFPatcher
 					var echoBlock = Util.FlattenString($@"
 						if(param2 == ""echo."" && g.me.id != param3) {{
 							if(param1 == ""global"" || param1 == ""private"") {{
-								g.sendToServiceRoom(""chatMsg"",""private"",param4,""<b><font color=\'#34cceb\'>QoLAF v{echoVersion} (Auto-Patched) - ryd3v, Kaiser, Pancake</font></b>"");
+								g.sendToServiceRoom(""chatMsg"",""private"",param4,""<b><font color=\'#34cceb\'>QoLAF ({echoVersion}) (Auto-Patched)</font></b>"");
 							}}
 							else {{
-								g.sendToServiceRoom(""chatMsg"",""local"",""<b><font color=\'#34cceb\'>QoLAF v{echoVersion} (Auto-Patched) - ryd3v, Kaiser, Pancake</font></b>"");
+								g.sendToServiceRoom(""chatMsg"",""local"",""<b><font color=\'#34cceb\'>QoLAF ({echoVersion}) (Auto-Patched)</font></b>"");
 							}}
 						}}
 					");
@@ -1706,7 +1895,7 @@ class AFPatcher
 					
 					return new PatchResult(flatScript);
 				}),
-				new Patch("Add [client_dev] tag to colorCoding", (ctx) =>
+				new Patch("Add [client_dev] tag to colorCoding (ryd3v)", (ctx) =>
 				{
 					// Flattens script to remove new lines and carriage returns
 					var flatScript = Util.FlattenString(ctx.ScriptText);
@@ -1741,7 +1930,7 @@ class AFPatcher
 					
 					return new PatchResult(flatScript);
 				}),
-				new Patch("Add [client_dev] tag to colorRights", (ctx) =>
+				new Patch("Add [client_dev] tag to colorRights (ryd3v)", (ctx) =>
 				{
 					// Flattens script to remove new lines and carriage returns
 					var flatScript = Util.FlattenString(ctx.ScriptText);
@@ -1884,7 +2073,7 @@ class AFPatcher
 	            })
             ]),
             new PatchDescriptor("core.hud.components.chat.ChatInputText", [
-				new Patch("Add /rec command to open portable recycle", (ctx) =>
+				new Patch("Add /rec command to open portable recycle (TheRealPancake)", (ctx) =>
 				{
 					// Gets the OPEN_PORTABLE_RECYCLE identifier name
 					if (!ctx.GetGlobalContext().GetIdentifier("OPEN_PORTABLE_RECYCLE", out var openPortableRecycleIdentifier))
@@ -1969,6 +2158,367 @@ class AFPatcher
 					
 					return new PatchResult(flatScript);
 				})
+            ]),
+            new PatchDescriptor("core.states.gameStates.LandedPaintShop", [
+	            new Patch("Add buttons and sliders for special painting (mufenz)", (ctx) =>
+	            {
+		            // Gets the PAINT_MODE identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("PAINT_MODE", out var paintModeIdentifier))
+			            return null;
+		            
+		            // Gets the SET_EXTENDED identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("SET_EXTENDED", out var setExtendedIdentifier))
+			            return null;
+		            
+		            // Gets the SET_EXTREME identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("SET_EXTREME", out var setExtremeIdentifier))
+			            return null;
+		            
+		            // Gets the SET_ORIGINAL identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("SET_ORIGINAL", out var setOriginalIdentifier))
+			            return null;
+		            
+		            // Gets the SET_UNPAINT identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("SET_UNPAINT", out var setUnpaintIdentifier))
+			            return null;
+		            
+		            // Gets the UPDATE_VISUALS identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("UPDATE_VISUALS", out var updateVisualsIdentifier))
+			            return null;
+		            
+		            // Gets the CUSTOM_TEST_DRIVE identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("CUSTOM_TEST_DRIVE", out var customTestDriveIdentifier))
+			            return null;
+		            
+		            var flatScript = Util.FlattenString(ctx.ScriptText);
+		            var functionDefinitionMatch = Regex.Match(flatScript, @"override\s+public\s+function\s+enter\s*\(.*?\)\s*:\s*\w+");
+		            if (!functionDefinitionMatch.Success)
+			            return null;
+		            
+		            var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
+		            if (scopeInfo is null)
+			            return null;
+                    
+		            var scopeText = scopeInfo.ScopeText;
+		            var newButtonsAndSlidersToInsert = Util.FlattenString($@"
+						var currentModeText:Text = new Text();
+						currentModeText.text = g.{paintModeIdentifier};
+						currentModeText.x = 200;
+						currentModeText.y = 100;
+						currentModeText.size = 23;
+						currentModeText.color = 16515901;
+						addChild(currentModeText);
+						var buttons:Button = new Button({setExtendedIdentifier},""Extended"",""highlight"");
+						buttons.x = 200;
+						buttons.y = 390;
+						addChild(buttons);
+						buttons = new Button({setExtremeIdentifier},""Extreme"",""highlight"");
+						buttons.x = 5 * 60;
+						buttons.y = 390;
+						addChild(buttons);
+						buttons = new Button({setUnpaintIdentifier},""Un-Paint"",""highlight"");
+						buttons.x = 400;
+						buttons.y = 390;
+						addChild(buttons);
+						buttons = new Button({setOriginalIdentifier},""Original"",""highlight"");
+						buttons.x = 500;
+						buttons.y = 390;
+						addChild(buttons);
+						buttons = new Button({customTestDriveIdentifier},""Free Test Drive"",""positive"");
+						buttons.x = 270;
+						buttons.y = 485;
+						addChild(buttons);
+					");
+
+		            var ifPaintModeIsUnpaintInsertText = Util.FlattenString($@"
+						if(g.{paintModeIdentifier} == ""Un-Paint"") {{
+							sliderShipHue.minimum = 0;
+							sliderShipHue.maximum = 0;
+						}}
+					");
+
+		            var sliderShipBrightnessIfBlock = Util.FlattenString($@"
+						if(g.{paintModeIdentifier} == ""Extended"") {{
+							sliderShipBrightness.minimum = -1.18;
+							sliderShipBrightness.maximum = 1.04;
+						}}
+						if(g.{paintModeIdentifier} == ""Extreme"") {{
+							sliderShipBrightness.minimum = -2147483648;
+							sliderShipBrightness.maximum = 0x7fffffff;
+						}}
+						if(g.{paintModeIdentifier} == ""Un-Paint"") {{
+							sliderShipBrightness.minimum = 0;
+							sliderShipBrightness.maximum = 0;
+						}}
+					");
+		            
+		            var sliderShipSaturationIfBlock = Util.FlattenString($@"
+						if(g.{paintModeIdentifier} == ""Extended"") {{
+							sliderShipSaturation.minimum = -3;
+							sliderShipSaturation.maximum = 15;
+						}}
+						if(g.{paintModeIdentifier} == ""Extreme"") {{
+							sliderShipSaturation.minimum = -2147483648;
+							sliderShipSaturation.maximum = 0x7fffffff;
+						}}
+						if(g.{paintModeIdentifier} == ""Un-Paint"") {{
+							sliderShipSaturation.minimum = 0;
+							sliderShipSaturation.maximum = 0;
+						}}
+					");
+		            
+		            var sliderShipContrastIfBlock = Util.FlattenString($@"
+						if(g.{paintModeIdentifier} == ""Extended"") {{
+							sliderShipContrast.minimum = -4;
+							sliderShipContrast.maximum = 8;
+						}}
+						if(g.{paintModeIdentifier} == ""Extreme"") {{
+							sliderShipContrast.minimum = -2147483648;
+							sliderShipContrast.maximum = 0x7fffffff;
+						}}
+						if(g.{paintModeIdentifier} == ""Un-Paint"") {{
+							sliderShipContrast.minimum = 0;
+							sliderShipContrast.maximum = 0;
+						}}
+					");
+
+		            var hueUnpaintToInsert = Util.FlattenString($@"
+						if(g.{paintModeIdentifier} == ""Un-Paint"") {{
+							sliderEngineHue.minimum = 0;
+							sliderEngineHue.maximum = 0;
+						}}
+					");
+
+		            {
+			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
+			            var anchorMatch = Regex.Match(scopeText,
+				            @"addShip\(\);()[^""]*\s+=\s+dataManager\.loadKey\(""Skins"",g\.me\.activeSkin\);");
+		            
+			            if (!anchorMatch.Success)
+				            return null;
+
+			            {
+				            // Insert text in between the strings
+				            var first = scopeText.Substring(0, anchorMatch.Groups[1].Index);
+				            var second = scopeText.Substring(anchorMatch.Groups[1].Index);
+				            scopeText = $"{first}{newButtonsAndSlidersToInsert}{second}";
+			            }
+		            }
+
+		            {
+			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
+			            var anchorMatch = Regex.Match(scopeText,
+				            @"sliderShipHue\.maximum\s+=\s+1\.8707963267948966;()sliderShipHue\.width\s+=\s+200;");
+		            
+			            if (!anchorMatch.Success)
+				            return null;
+
+			            {
+				            // Insert text in between the strings
+				            var first = scopeText.Substring(0, anchorMatch.Groups[1].Index);
+				            var second = scopeText.Substring(anchorMatch.Groups[1].Index);
+				            scopeText = $"{first}{ifPaintModeIsUnpaintInsertText}{second}";
+			            }
+		            }
+		            
+		            {
+			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
+			            var anchorMatch = Regex.Match(scopeText,
+				            @"sliderShipBrightness\.maximum\s+=\s+0\.04;()sliderShipBrightness\.width\s+=\s+200;");
+		            
+			            if (!anchorMatch.Success)
+				            return null;
+
+			            {
+				            // Insert text in between the strings
+				            var first = scopeText.Substring(0, anchorMatch.Groups[1].Index);
+				            var second = scopeText.Substring(anchorMatch.Groups[1].Index);
+				            scopeText = $"{first}{sliderShipBrightnessIfBlock}{second}";
+			            }
+		            }
+		            
+		            {
+			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
+			            var anchorMatch = Regex.Match(scopeText,
+				            @"sliderShipSaturation\.maximum\s+=\s+1;()sliderShipSaturation\.width\s+=\s+200;");
+		            
+			            if (!anchorMatch.Success)
+				            return null;
+
+			            {
+				            // Insert text in between the strings
+				            var first = scopeText.Substring(0, anchorMatch.Groups[1].Index);
+				            var second = scopeText.Substring(anchorMatch.Groups[1].Index);
+				            scopeText = $"{first}{sliderShipSaturationIfBlock}{second}";
+			            }
+		            }
+		            
+		            {
+			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
+			            var anchorMatch = Regex.Match(scopeText,
+				            @"sliderShipContrast\.maximum\s+=\s+1;()sliderShipContrast\.width\s+=\s+200;");
+		            
+			            if (!anchorMatch.Success)
+				            return null;
+
+			            {
+				            // Insert text in between the strings
+				            var first = scopeText.Substring(0, anchorMatch.Groups[1].Index);
+				            var second = scopeText.Substring(anchorMatch.Groups[1].Index);
+				            scopeText = $"{first}{sliderShipContrastIfBlock}{second}";
+			            }
+		            }
+		            
+		            {
+			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
+			            var anchorMatch = Regex.Match(scopeText,
+				            @"sliderEngineHue\.maximum\s+=\s+3\.141592653589793;()sliderEngineHue\.width\s+=\s+200;");
+		            
+			            if (!anchorMatch.Success)
+				            return null;
+
+			            {
+				            // Insert text in between the strings
+				            var first = scopeText.Substring(0, anchorMatch.Groups[1].Index);
+				            var second = scopeText.Substring(anchorMatch.Groups[1].Index);
+				            scopeText = $"{first}{hueUnpaintToInsert}{second}";
+			            }
+		            }
+		            
+		            {
+			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
+			            var anchorMatch = Regex.Match(scopeText,
+				            @"loadCompleted\(\);()if\(RymdenRunt\.isBuggedFlashVersion\)");
+		            
+			            if (!anchorMatch.Success)
+				            return null;
+
+			            {
+				            // Insert text in between the strings
+				            var first = scopeText.Substring(0, anchorMatch.Groups[1].Index);
+				            var second = scopeText.Substring(anchorMatch.Groups[1].Index);
+				            scopeText = $@"{first}{updateVisualsIdentifier}();{second}";
+			            }
+		            }
+		            
+		            {
+			            // Split original script and re-insert block of function
+			            var first = flatScript.Substring(0, scopeInfo.Index);
+			            var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
+			            flatScript = $"{first}{scopeText}{last}";
+		            }
+					
+		            return new PatchResult(flatScript);
+	            }),
+	            new Patch("Add SET_EXTENDED, SET_EXTREME, SET_ORIGINAL, SET_UNPAINT, UPDATE_VISUALS, TEST_DRIVE functions (mufenz)", (ctx) =>
+	            {
+		            // Gets the PAINT_MODE identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("PAINT_MODE", out var paintModeIdentifier))
+			            return null;
+		            
+		            // Gets the SET_EXTENDED identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("SET_EXTENDED", out var setExtendedIdentifier))
+			            return null;
+		            
+		            // Gets the SET_EXTREME identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("SET_EXTREME", out var setExtremeIdentifier))
+			            return null;
+		            
+		            // Gets the SET_ORIGINAL identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("SET_ORIGINAL", out var setOriginalIdentifier))
+			            return null;
+		            
+		            // Gets the SET_UNPAINT identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("SET_UNPAINT", out var setUnpaintIdentifier))
+			            return null;
+		            
+		            // Gets the UPDATE_VISUALS identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("UPDATE_VISUALS", out var updateVisualsIdentifier))
+			            return null;
+		            
+		            // Gets the TEST_DRIVE identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("TEST_DRIVE", out var testDriveIdentifier))
+			            return null;
+		            
+		            // Gets the CUSTOM_TEST_DRIVE identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier("CUSTOM_TEST_DRIVE", out var customTestDriveIdentifier))
+			            return null;
+
+		            var functionsToInsert = Util.FlattenString($@"
+						public function {setExtendedIdentifier}(e:TouchEvent = null): void {{
+							g.{paintModeIdentifier} = ""Extended"";
+							leave();
+						}}
+						
+						public function {setExtremeIdentifier}(e:TouchEvent = null): void {{
+							g.{paintModeIdentifier} = ""Extreme"";
+							leave();
+						}}
+						
+						public function {setOriginalIdentifier}(e:TouchEvent = null): void {{
+							g.{paintModeIdentifier} = ""Original"";
+							leave();
+						}}
+						
+						public function {setUnpaintIdentifier}(e:TouchEvent = null): void {{
+							g.{paintModeIdentifier} = ""Un-Paint"";
+							leave();
+						}}
+						
+						public function {updateVisualsIdentifier}(): void {{
+							var filter:ColorMatrixFilter = new ColorMatrixFilter();
+							filter.adjustHue(sliderShipHue.value);
+							filter.adjustBrightness(sliderShipBrightness.value);
+							filter.adjustSaturation(sliderShipSaturation.value);
+							filter.adjustContrast(sliderShipContrast.value);
+							preview.movieClip.filter = filter;
+							for each(filter in emitters) {{
+								filter.changeHue(sliderEngineHue.value);
+							}}
+						}}
+						
+						public function {testDriveIdentifier}(e:TouchEvent = null) : void {{
+							var filter:ColorMatrixFilter = new ColorMatrixFilter();
+							filter.adjustHue(sliderShipHue.value);
+							filter.adjustBrightness(sliderShipBrightness.value);
+							filter.adjustSaturation(sliderShipSaturation.value);
+							filter.adjustContrast(sliderShipContrast.value);
+							g.me.ship.movieClip.filter = filter;
+							g.me.ship.originalFilter = filter;
+						}}
+						
+						public function {customTestDriveIdentifier}(e:TouchEvent = null) : void
+						{{
+							leave();
+							starling.core.Starling.juggler.delayCall({testDriveIdentifier},1);
+							starling.core.Starling.juggler.delayCall({testDriveIdentifier},2);
+							g.me.enginePaint = sliderEngineHue.value;
+						}}
+					");
+                    
+		            // Flattens script to remove new lines and carriage returns
+		            var flatScript = Util.FlattenString(ctx.ScriptText);
+
+		            // Add SET_EXTENDED, SET_EXTREME, SET_ORIGINAL, SET_UNPAINT, UPDATE_VISUALS, TEST_DRIVE function to core.scene.Game
+		            {
+			            // Tries to match Game class declaration
+			            var match = Regex.Match(flatScript, @"public class LandedPaintShop extends LandedState{");
+			            if (match.Success)
+			            {
+				            // Sets the position to the end of the match
+				            var position = match.Index + match.Length;
+                            
+				            // Splits the first and the last part of the script text to insert text in between
+				            var firstPart = flatScript.Substring(0, position);
+				            var lastPart = flatScript.Substring(position);
+                            
+				            // Inserts text in between firstPart and lastPart
+				            flatScript = $"{firstPart}{functionsToInsert}{lastPart}";
+			            }
+		            }
+                    
+		            return new PatchResult(flatScript);
+	            })
             ])
         ]);
     }
