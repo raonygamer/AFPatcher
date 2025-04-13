@@ -4,11 +4,11 @@ using Newtonsoft.Json.Converters;
 
 namespace AFPatcher.Models;
 
-public class GlobalPatchContext(Dictionary<string, string> identifierNames)
+public class GlobalPatchContext(Dictionary<string, object> identifierNames)
 {
-    public Dictionary<string, string> IdentifierNames { get; set; } = identifierNames;
+    public Dictionary<string, object> IdentifierNames { get; set; } = identifierNames;
 
-    public void AddIdentifier(string identifier, string identifierName)
+    public void AddIdentifier(string identifier, object identifierName)
     {
         if (IdentifierNames.ContainsKey(identifier))
         {
@@ -26,14 +26,26 @@ public class GlobalPatchContext(Dictionary<string, string> identifierNames)
         }
     }
 
-    public bool GetIdentifier(string identifier, out string identifierName)
+    public bool GetIdentifier(string identifier, out object? identifierName)
     {
-        if (!IdentifierNames.TryGetValue(identifier, out identifierName!))
+        if (!IdentifierNames.TryGetValue(identifier, out identifierName))
         {
             Console.WriteLine($"Identifier '{identifier}' not found on GlobalContext.");
             return false;
         }
         
+        return true;
+    }
+    
+    public bool GetIdentifier<T>(string identifier, out T? identifierName)
+    {
+        identifierName = default;
+        GetIdentifier(identifier, out object? identifierObj);
+        if (identifierObj is not T obj)
+        {
+            return false;
+        }
+        identifierName = obj;
         return true;
     }
 }

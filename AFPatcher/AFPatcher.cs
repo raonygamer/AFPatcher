@@ -27,9 +27,9 @@ class AFPatcher
         AppDomain.CurrentDomain.ProcessExit += (sender, args) => OnExit();
         TemporaryDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString().Replace("-", ""));
         DecompilationDirectory = Path.Combine(TemporaryDirectory, "decompiled");
-        Console.WriteLine("Creating temporary directory...");
+        Util.WriteLine("Creating temporary directory...");
         Directory.CreateDirectory(DecompilationDirectory);
-        Console.WriteLine($"Created temporary directory: {TemporaryDirectory}");
+        Util.WriteLine($"Created temporary directory: {TemporaryDirectory}");
     }
     
     private async Task Start()
@@ -39,7 +39,7 @@ class AFPatcher
                 out var swfFile) ||
             !File.Exists(swfFile))
         {
-            Console.WriteLine("No swf file found.");
+            Util.WriteLine("No swf file found.");
             return;
         }
 
@@ -53,28 +53,35 @@ class AFPatcher
                 desc.FullyQualifiedName.Replace('.', '\\') + ".as");
             if (!File.Exists(file))
             {
-                Console.WriteLine($"Qualified name '{desc.FullyQualifiedName}' does not exist.");
-                Console.WriteLine();
+                Util.WriteLine($"Qualified name '{desc.FullyQualifiedName}' does not exist.", ConsoleColor.Red);
+                Util.WriteLine();
                 continue;
             }
             
             var text = await File.ReadAllTextAsync(file);
-            Console.WriteLine($"Patching '{desc.FullyQualifiedName}'...");
+            Util.WriteLine($"Patching '{desc.FullyQualifiedName}'...", ConsoleColor.DarkCyan);
+            int successPatches = 0;
             foreach (var patch in desc.Patches)
             {
                 var result = patch.PatchFunction(new PatchContext(patches, text));
                 if (result is null)
                 {
-                    Console.WriteLine($"    Couldn't apply the patch '{patch.Name}'.");
+                    Util.WriteLine($"    Couldn't apply the patch '{patch.Name}'.", ConsoleColor.Red);
                     continue;
                 }
 
-                Console.WriteLine($"    Patch '{patch.Name}' successfully applied to '{desc.FullyQualifiedName}'.");
+                Util.WriteLine($"    Patch '{patch.Name}' successfully applied to '{desc.FullyQualifiedName}'.", ConsoleColor.Green);
+                successPatches++;
                 text = result.ScriptText;
             }
             
-            Console.WriteLine($"Patched '{desc.FullyQualifiedName}'.");
-            Console.WriteLine();
+            if (successPatches == desc.Patches.Length)
+				Util.WriteLine($"Fully patched '{desc.FullyQualifiedName}'.", ConsoleColor.DarkCyan);
+            else if (successPatches > 0)
+	            Util.WriteLine($"Partially patched '{desc.FullyQualifiedName}'.", ConsoleColor.DarkYellow);
+            else
+				Util.WriteLine($"Failed to patch '{desc.FullyQualifiedName}'.", ConsoleColor.Red);
+            Util.WriteLine();
             await File.WriteAllTextAsync(file, text);
             changedScripts.Add($"{desc.FullyQualifiedName} {file}");
         }
@@ -88,7 +95,7 @@ class AFPatcher
         
         Directory.CreateDirectory(Path.Combine(TemporaryDirectory, "recompiled"));
         await (Util.InvokeFFDec([string.Join(" ", ["-replace", swfFile, Path.Combine(TemporaryDirectory, "recompiled", Path.GetFileName(swfFile)), ..changedScripts])])?.WaitForExitAsync() ?? Task.CompletedTask);
-        Console.WriteLine($"Recompiled '{swfFile}'.");
+        Util.WriteLine($"Recompiled '{swfFile}'.");
         if (!NativeFileDialog.SaveDialog(
                 [new NativeFileDialog.Filter() { Name = "Shockwave Files", Extensions = ["swf"] }], null,
                 out var savingPath))
@@ -112,7 +119,7 @@ class AFPatcher
     private GamePatches GetPatches()
     {
         return new GamePatches(
-            new GlobalPatchContext(new Dictionary<string, string>()
+            new GlobalPatchContext(new Dictionary<string, object>()
             {
                 { "ZOOM_FACTOR", "zoomFactor" },
                 { "CHECK_ZOOM_FACTOR", "checkZoom" },
@@ -138,7 +145,19 @@ class AFPatcher
                 { "LOAD_SHARED_OBJ", "loadSharedObj" },
                 { "SET_PURIFY_STATS", "setPurifyStats" },
                 { "OPEN_PORTABLE_RECYCLE", "openPortableRecycle" },
-                { "ECHO_VERSION", "Server 1389 / v1.0.1" },
+                { "SERVER_VERSION", 1389 },
+                { "CLIENT_VERSION", "1.0.3" },
+                { 
+	                "DEVELOPERS", 
+	                new Dictionary<string, string>()
+	                {
+		                { "ryd3v", "steam76561199032900322" },
+		                { "TheRealPancake", "steam76561198188053594" },
+		                { "Kaiser/Primiano", "" },
+		                { "TheLostOne", "simple1622136353425" },
+		                { "mufenz", "" }
+	                }
+                },
                 { "PAINT_MODE", "paintMode" },
                 { "SET_EXTENDED", "setExtended" },
                 { "SET_EXTREME", "setExtreme" },
@@ -149,13 +168,15 @@ class AFPatcher
                 { "CUSTOM_TEST_DRIVE", "customTestDrive" },
                 { "DELTA_TIME", "deltaTime" },
                 { "CLIENT_DEV_HUE_COLOR", "clientDevHueColor" },
+                { "ENGINE_COLOR", "engineColor" },
+                { "ECHO_COLOR", "#6f32a8" }
             }),
             [
             new PatchDescriptor("core.scene.Game", [
                 new Patch("Add ZOOM_FACTOR variable", (ctx) =>
                 {
                     // Gets the zoom identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("ZOOM_FACTOR", out var zoomIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("ZOOM_FACTOR", out var zoomIdentifier))
                         return null;
                     
                     // The text to insert
@@ -187,7 +208,7 @@ class AFPatcher
                 new Patch("Add DELTA_TIME variable", (ctx) =>
                 {
 	                // Gets the DELTA_TIME identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("DELTA_TIME", out var deltaTimeIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("DELTA_TIME", out var deltaTimeIdentifier))
 		                return null;
                     
 	                // The text to insert
@@ -219,7 +240,7 @@ class AFPatcher
                 new Patch("Add CLIENT_DEV_HUE_COLOR variable", (ctx) =>
                 {
 	                // Gets the CLIENT_DEV_HUE_COLOR identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("CLIENT_DEV_HUE_COLOR", out var clientDevHueColorIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("CLIENT_DEV_HUE_COLOR", out var clientDevHueColorIdentifier))
 		                return null;
                     
 	                // The text to insert
@@ -251,7 +272,7 @@ class AFPatcher
                 new Patch("Add SHARED_OBJ variable", (ctx) =>
                 {
 	                // Gets the SHARED_OBJ identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("SHARED_OBJ", out var sharedObjIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("SHARED_OBJ", out var sharedObjIdentifier))
 		                return null;
                     
 	                // The text to insert
@@ -283,15 +304,15 @@ class AFPatcher
                 new Patch("Add THIS_STRENGTH, THIS_FITNESS, THIS_LINES variables (Primiano/Kaiser)", (ctx) =>
                 {
 	                // Gets the THIS_STRENGTH identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("THIS_STRENGTH", out var thisStrengthIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("THIS_STRENGTH", out var thisStrengthIdentifier))
 		                return null;
 	                
 	                // Gets the THIS_FITNESS identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("THIS_FITNESS", out var thisFitnessIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("THIS_FITNESS", out var thisFitnessIdentifier))
 		                return null;
 	                
 	                // Gets the THIS_LINES identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("THIS_LINES", out var thisLinesIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("THIS_LINES", out var thisLinesIdentifier))
 		                return null;
                     
 	                // The text to insert
@@ -327,31 +348,31 @@ class AFPatcher
                 new Patch("Add SAVE_SHARED_OBJ, LOAD_SHARED_OBJ, SAVE_PURIFY_STATS functions", (ctx) =>
                 {
 	                // Gets the SHARED_OBJ identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("SHARED_OBJ", out var sharedObjIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("SHARED_OBJ", out var sharedObjIdentifier))
 		                return null;
 	                
                     // Gets the SAVE_SHARED_OBJ identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("SAVE_SHARED_OBJ", out var saveSharedObjIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("SAVE_SHARED_OBJ", out var saveSharedObjIdentifier))
                         return null;
                     
                     // Gets the LOAD_SHARED_OBJ identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("LOAD_SHARED_OBJ", out var loadSharedObjIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("LOAD_SHARED_OBJ", out var loadSharedObjIdentifier))
 	                    return null;
                     
                     // Gets the SET_PURIFY_STATS identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("SET_PURIFY_STATS", out var setPurifyStatsIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("SET_PURIFY_STATS", out var setPurifyStatsIdentifier))
                         return null;
                     
                     // Gets the THIS_STRENGTH identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("THIS_STRENGTH", out var thisStrengthIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("THIS_STRENGTH", out var thisStrengthIdentifier))
 	                    return null;
 	                
                     // Gets the THIS_FITNESS identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("THIS_FITNESS", out var thisFitnessIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("THIS_FITNESS", out var thisFitnessIdentifier))
 	                    return null;
 	                
                     // Gets the THIS_LINES identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("THIS_LINES", out var thisLinesIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("THIS_LINES", out var thisLinesIdentifier))
 	                    return null;
                     
                     // SAVE_SHARED_OBJ block to insert
@@ -411,7 +432,7 @@ class AFPatcher
                 new Patch("Initialize SHARED_OBJ on constructor", (ctx) =>
                 {
 	                // Gets the SHARED_OBJ identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("SHARED_OBJ", out var sharedObjIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("SHARED_OBJ", out var sharedObjIdentifier))
 		                return null;
 	                
 	                // Flattens script to remove new lines and carriage returns
@@ -449,7 +470,7 @@ class AFPatcher
                 new Patch("Add LOAD_SHARED_OBJ on init function", (ctx) =>
                 {
 	                // Gets the LOAD_SHARED_OBJ identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("LOAD_SHARED_OBJ", out var loadSharedObjIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("LOAD_SHARED_OBJ", out var loadSharedObjIdentifier))
 		                return null;
 	                
 	                // Flattens script to remove new lines and carriage returns
@@ -488,7 +509,7 @@ class AFPatcher
                 new Patch("Add DELTA_TIME on update function", (ctx) =>
                 {
 	                // Gets the DELTA_TIME identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("DELTA_TIME", out var deltaTimeIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("DELTA_TIME", out var deltaTimeIdentifier))
 		                return null;
 	                
 	                // Flattens script to remove new lines and carriage returns
@@ -527,7 +548,7 @@ class AFPatcher
                 new Patch("Add OPEN_PORTABLE_RECYCLE function (TheRealPancake)", (ctx) =>
                 {
 	                // Gets the OPEN_PORTABLE_RECYCLE identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("OPEN_PORTABLE_RECYCLE", out var openPortableRecycleIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("OPEN_PORTABLE_RECYCLE", out var openPortableRecycleIdentifier))
 		                return null;
                     
 	                // OPEN_PORTABLE_RECYCLE block to insert
@@ -565,7 +586,7 @@ class AFPatcher
                 new Patch("Add PAINT_MODE variable (mufenz)", (ctx) =>
                 {
 	                // Gets the PAINT_MODE identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("PAINT_MODE", out var paintModeIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("PAINT_MODE", out var paintModeIdentifier))
 		                return null;
                     
 	                // The text to insert
@@ -597,11 +618,11 @@ class AFPatcher
                 new Patch("Add [client_dev] thrust rainbow on tickUpdate function", (ctx) =>
                 {
 	                // Gets the DELTA_TIME identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("DELTA_TIME", out var deltaTimeIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("DELTA_TIME", out var deltaTimeIdentifier))
 		                return null;
 	                
 	                // Gets the CLIENT_DEV_HUE_COLOR identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("CLIENT_DEV_HUE_COLOR", out var clientDevHueColorIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("CLIENT_DEV_HUE_COLOR", out var clientDevHueColorIdentifier))
 		                return null;
 	                
 	                // Flattens script to remove new lines and carriage returns
@@ -668,7 +689,7 @@ class AFPatcher
                 new Patch("Replace all camera zoomFocus calls for zoom", (ctx) =>
                 {
                     // Gets the zoom identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("ZOOM_FACTOR", out var zoomIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("ZOOM_FACTOR", out var zoomIdentifier))
                         return null;
                     
                     // Flattens script to remove new lines and carriage returns
@@ -688,11 +709,11 @@ class AFPatcher
                 new Patch("Add CHECK_ZOOM_FACTOR function", (ctx) =>
                 {
                     // Gets the zoom identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("ZOOM_FACTOR", out var zoomIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("ZOOM_FACTOR", out var zoomIdentifier))
                         return null;
                     
                     // Gets the check zoom identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("CHECK_ZOOM_FACTOR", out var checkZoomIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("CHECK_ZOOM_FACTOR", out var checkZoomIdentifier))
                         return null;
                     
                     // Function block to insert
@@ -738,7 +759,7 @@ class AFPatcher
                 new Patch("Add CHECK_ZOOM_FACTOR call in updateCommands", (ctx) =>
                 {
                     // Gets the check zoom identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("CHECK_ZOOM_FACTOR", out var checkZoomIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("CHECK_ZOOM_FACTOR", out var checkZoomIdentifier))
                         return null;
                     
                     // Flattens script to remove new lines and carriage returns
@@ -775,7 +796,7 @@ class AFPatcher
                 new Patch("Add zoom calculation to createDmgText", (ctx) =>
                 {
                     // Gets the zoom identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("ZOOM_FACTOR", out var zoomIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("ZOOM_FACTOR", out var zoomIdentifier))
                         return null;
                     
                     // Flattens script to remove new lines and carriage returns
@@ -824,7 +845,7 @@ class AFPatcher
                 new Patch("Fix unit render distance for zoom", (ctx) =>
                 {
                     // Gets the zoom identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("ZOOM_FACTOR", out var zoomIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("ZOOM_FACTOR", out var zoomIdentifier))
                         return null;
                     
                     // Flattens script to remove new lines and carriage returns
@@ -866,7 +887,7 @@ class AFPatcher
                 new Patch("Fix boss render distance for zoom", (ctx) =>
                 {
                     // Gets the zoom identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("ZOOM_FACTOR", out var zoomIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("ZOOM_FACTOR", out var zoomIdentifier))
                         return null;
                     
                     // Flattens script to remove new lines and carriage returns
@@ -908,7 +929,7 @@ class AFPatcher
                 new Patch("Add FITNESS_LINE variable (Primiano/Kaiser)", (ctx) =>
                 {
                     // Gets the fitness line identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_LINE", out var fitnessLineIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("FITNESS_LINE", out var fitnessLineIdentifier))
                         return null;
                     
                     // The text to insert
@@ -940,7 +961,7 @@ class AFPatcher
                 new Patch("Add CALCULATE_FITNESS_OF_LINE function (Primiano/Kaiser)", (ctx) =>
                 {
                     // Gets the CALCULATE_FITNESS_OF_LINE identifier name
-                    if (!ctx.GetGlobalContext().GetIdentifier("CALCULATE_FITNESS_OF_LINE", out var calculateFitnessOfLineIdentifier))
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("CALCULATE_FITNESS_OF_LINE", out var calculateFitnessOfLineIdentifier))
                         return null;
                     
                     // The text to insert
@@ -1118,11 +1139,11 @@ class AFPatcher
                 new Patch("Initialize FITNESS_LINE with CALCULATE_FITNESS_OF_LINE function on constructor (Primiano/Kaiser)", (ctx) =>
                 {
 	                // Gets the FITNESS_LINE identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_LINE", out var fitnessLineIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("FITNESS_LINE", out var fitnessLineIdentifier))
 		                return null;
 	                
 	                // Gets the CALCULATE_FITNESS_OF_LINE identifier name
-	                if (!ctx.GetGlobalContext().GetIdentifier("CALCULATE_FITNESS_OF_LINE", out var calculateFitnessOfLineIdentifier))
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("CALCULATE_FITNESS_OF_LINE", out var calculateFitnessOfLineIdentifier))
 		                return null;
                     
 	                // Flattens script to remove new lines and carriage returns
@@ -1162,7 +1183,7 @@ class AFPatcher
 				new Patch("Add FITNESS_VALUE variable (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the fitness value identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_VALUE", out var fitnessValueIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("FITNESS_VALUE", out var fitnessValueIdentifier))
 						return null;
                     
 					// The text to insert
@@ -1272,7 +1293,7 @@ class AFPatcher
 				new Patch("Change orderLevelLow ordering mode to fitness (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the fitness value identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_VALUE", out var fitnessValueIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("FITNESS_VALUE", out var fitnessValueIdentifier))
 						return null;
 					
 					// Flattens script to remove new lines and carriage returns
@@ -1316,11 +1337,11 @@ class AFPatcher
 				new Patch("Add CALCULATE_FITNESS_VALUE function (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the CALCULATE_FITNESS_VALUE identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("CALCULATE_FITNESS_VALUE", out var calculateFitnessValueIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("CALCULATE_FITNESS_VALUE", out var calculateFitnessValueIdentifier))
 						return null;
 					
 					// Gets the FITNESS_LINE identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_LINE", out var fitnessLineIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("FITNESS_LINE", out var fitnessLineIdentifier))
 						return null;
 					
 					// Flattens script to remove new lines and carriage returns
@@ -1362,11 +1383,11 @@ class AFPatcher
 				new Patch("Add FITNESS_VALUE calculation to the update function (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the FITNESS_VALUE identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_VALUE", out var fitnessValueIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("FITNESS_VALUE", out var fitnessValueIdentifier))
 						return null;
 					
 					// Gets the CALCULATE_FITNESS_VALUE identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("CALCULATE_FITNESS_VALUE", out var calculateFitnessValueIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("CALCULATE_FITNESS_VALUE", out var calculateFitnessValueIdentifier))
 						return null;
 					
 					// Flattens script to remove new lines and carriage returns
@@ -1406,27 +1427,27 @@ class AFPatcher
 				new Patch("Add PURIFIED_ARTS, PURIFY_BUTTON, SAVE_STATS_BUTTON, FITNESS_INPUT, LINE_INPUT, STRENGTH_INPUT variables (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the PURIFIED_ARTS identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("PURIFIED_ARTS", out var purifiedArtsIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("PURIFIED_ARTS", out var purifiedArtsIdentifier))
 						return null;
 					
 					// Gets the PURIFY_BUTTON identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("PURIFY_BUTTON", out var purifyButtonIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("PURIFY_BUTTON", out var purifyButtonIdentifier))
 						return null;
 					
 					// Gets the SAVE_STATS_BUTTON identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("SAVE_STATS_BUTTON", out var saveStatsButtonIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("SAVE_STATS_BUTTON", out var saveStatsButtonIdentifier))
 						return null;
 					
 					// Gets the FITNESS_INPUT identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_INPUT", out var fitnessInputIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("FITNESS_INPUT", out var fitnessInputIdentifier))
 						return null;
 					
 					// Gets the LINE_INPUT identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("LINE_INPUT", out var lineInputIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("LINE_INPUT", out var lineInputIdentifier))
 						return null;
 					
 					// Gets the STRENGTH_INPUT identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("STRENGTH_INPUT", out var strengthInputIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("STRENGTH_INPUT", out var strengthInputIdentifier))
 						return null;
                     
 					// The text to insert
@@ -1465,47 +1486,47 @@ class AFPatcher
 				new Patch("Add purification components to drawComponents (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the PURIFIED_ARTS identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("PURIFIED_ARTS", out var purifiedArtsIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("PURIFIED_ARTS", out var purifiedArtsIdentifier))
 						return null;
 					
 					// Gets the PURIFY_BUTTON identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("PURIFY_BUTTON", out var purifyButtonIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("PURIFY_BUTTON", out var purifyButtonIdentifier))
 						return null;
 					
 					// Gets the SAVE_STATS_BUTTON identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("SAVE_STATS_BUTTON", out var saveStatsButtonIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("SAVE_STATS_BUTTON", out var saveStatsButtonIdentifier))
 						return null;
 					
 					// Gets the FITNESS_INPUT identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_INPUT", out var fitnessInputIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("FITNESS_INPUT", out var fitnessInputIdentifier))
 						return null;
 					
 					// Gets the LINE_INPUT identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("LINE_INPUT", out var lineInputIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("LINE_INPUT", out var lineInputIdentifier))
 						return null;
 					
 					// Gets the STRENGTH_INPUT identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("STRENGTH_INPUT", out var strengthInputIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("STRENGTH_INPUT", out var strengthInputIdentifier))
 						return null;
 					
 					// Gets the THIS_STRENGTH identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("THIS_STRENGTH", out var thisStrengthIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("THIS_STRENGTH", out var thisStrengthIdentifier))
 						return null;
 	                
 					// Gets the THIS_FITNESS identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("THIS_FITNESS", out var thisFitnessIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("THIS_FITNESS", out var thisFitnessIdentifier))
 						return null;
 	                
 					// Gets the THIS_LINES identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("THIS_LINES", out var thisLinesIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("THIS_LINES", out var thisLinesIdentifier))
 						return null;
 					
 					// Gets the SAVE_STATS identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("SAVE_STATS", out var saveStatsIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("SAVE_STATS", out var saveStatsIdentifier))
 						return null;
                     
 					// Gets the PURIFY_ARTS identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("PURIFY_ARTS", out var purifyArtsIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("PURIFY_ARTS", out var purifyArtsIdentifier))
 						return null;
 					
 					// Flattens script to remove new lines and carriage returns
@@ -1577,63 +1598,63 @@ class AFPatcher
 				new Patch("Add SAVE_STATS, PURIFY_ARTS, ON_PURIFY_RECYCLE, ON_PURIFY_MESSAGE functions (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the PURIFIED_ARTS identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("PURIFIED_ARTS", out var purifiedArtsIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("PURIFIED_ARTS", out var purifiedArtsIdentifier))
 						return null;
 					
 					// Gets the SAVE_STATS identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("SAVE_STATS", out var saveStatsIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("SAVE_STATS", out var saveStatsIdentifier))
 						return null;
                     
 					// Gets the PURIFY_ARTS identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("PURIFY_ARTS", out var purifyArtsIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("PURIFY_ARTS", out var purifyArtsIdentifier))
 						return null;
 					
 					// Gets the ON_PURIFY_RECYCLE identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("ON_PURIFY_RECYCLE", out var onPurifyRecycleIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("ON_PURIFY_RECYCLE", out var onPurifyRecycleIdentifier))
 						return null;
 					
 					// Gets the ON_PURIFY_MESSAGE identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("ON_PURIFY_MESSAGE", out var onPurifyMessageIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("ON_PURIFY_MESSAGE", out var onPurifyMessageIdentifier))
 						return null;
 					
 					// Gets the PURIFY_BUTTON identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("PURIFY_BUTTON", out var purifyButtonIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("PURIFY_BUTTON", out var purifyButtonIdentifier))
 						return null;
 					
 					// Gets the SAVE_STATS_BUTTON identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("SAVE_STATS_BUTTON", out var saveStatsButtonIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("SAVE_STATS_BUTTON", out var saveStatsButtonIdentifier))
 						return null;
 					
 					// Gets the FITNESS_INPUT identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_INPUT", out var fitnessInputIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("FITNESS_INPUT", out var fitnessInputIdentifier))
 						return null;
 					
 					// Gets the LINE_INPUT identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("LINE_INPUT", out var lineInputIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("LINE_INPUT", out var lineInputIdentifier))
 						return null;
 					
 					// Gets the STRENGTH_INPUT identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("STRENGTH_INPUT", out var strengthInputIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("STRENGTH_INPUT", out var strengthInputIdentifier))
 						return null;
 					
 					// Gets the THIS_STRENGTH identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("THIS_STRENGTH", out var thisStrengthIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("THIS_STRENGTH", out var thisStrengthIdentifier))
 						return null;
 	                
 					// Gets the THIS_FITNESS identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("THIS_FITNESS", out var thisFitnessIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("THIS_FITNESS", out var thisFitnessIdentifier))
 						return null;
 	                
 					// Gets the THIS_LINES identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("THIS_LINES", out var thisLinesIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("THIS_LINES", out var thisLinesIdentifier))
 						return null;
 					
 					// Gets the fitness value identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_VALUE", out var fitnessValueIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("FITNESS_VALUE", out var fitnessValueIdentifier))
 						return null;
 					
 					// Gets the SET_PURIFY_STATS identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("SET_PURIFY_STATS", out var setPurifyStatsIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("SET_PURIFY_STATS", out var setPurifyStatsIdentifier))
 						return null;
                     
 					// SAVE_STATS block to insert
@@ -1783,7 +1804,7 @@ class AFPatcher
 				new Patch("Add Fitness stat on tooltip (Primiano/Kaiser)", (ctx) =>
 				{
 					// Gets the FITNESS_VALUE identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("FITNESS_VALUE", out var fitnessValueIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("FITNESS_VALUE", out var fitnessValueIdentifier))
 						return null;
 					
 					// Flattens script to remove new lines and carriage returns
@@ -1835,19 +1856,23 @@ class AFPatcher
             new PatchDescriptor("core.hud.components.chat.MessageLog", [
 				new Patch("Add echo. and [client_dev] tag to writeChatMsg (ryd3v)", (ctx) =>
 				{
-					// Gets the ECHO_VERSION identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("ECHO_VERSION", out var echoVersion))
+					if (!ctx.GetGlobalContext().GetIdentifier<int>("SERVER_VERSION", out var serverVersion))
 						return null;
 					
-					// Flattens script to remove new lines and carriage returns
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("CLIENT_VERSION", out var clientVersion))
+						return null;
+					
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("ECHO_COLOR", out var echoColor))
+						return null;
+					
+					if (!ctx.GetGlobalContext().GetIdentifier<Dictionary<string, string>>("DEVELOPERS", out var developers))
+						return null;
+					
 					var flatScript = Util.FlattenString(ctx.ScriptText);
-
-					// Searches for the function definition
 					var functionDefinitionMatch = Regex.Match(flatScript, @"public\s+static\s+function\s+writeChatMsg\s*\(.*?\)\s*:\s*\w+");
 					if (!functionDefinitionMatch.Success)
 						return null;
-                    
-					// Get function scope info
+					
 					var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
 					if (scopeInfo is null)
 						return null;
@@ -1857,21 +1882,20 @@ class AFPatcher
 					var echoBlock = Util.FlattenString($@"
 						if(param2 == ""echo."" && g.me.id != param3) {{
 							if(param1 == ""global"" || param1 == ""private"") {{
-								g.sendToServiceRoom(""chatMsg"",""private"",param4,""<b><font color=\'#34cceb\'>QoLAF ({echoVersion}) (Auto-Patched)</font></b>"");
+								g.sendToServiceRoom(""chatMsg"",""private"",param4,""<b><font color=\'{echoColor}\'>QoLAF (Server {serverVersion} / v{clientVersion}) (Auto-Patched)</font></b>"");
 							}}
 							else {{
-								g.sendToServiceRoom(""chatMsg"",""local"",""<b><font color=\'#34cceb\'>QoLAF ({echoVersion}) (Auto-Patched)</font></b>"");
+								g.sendToServiceRoom(""chatMsg"",""local"",""<b><font color=\'{echoColor}\'>QoLAF (Server {serverVersion} / v{clientVersion}) (Auto-Patched)</font></b>"");
 							}}
 						}}
 					");
 					
 					var clientDevTagBlock = Util.FlattenString($@"
-						if(param3 == ""steam76561199032900322"" || param3 == ""steam76561198188053594"") {{
-							param5 = ""client_dev"";
+						if({string.Join(" || ", developers!.Select(kvp => kvp.Value != "" ? @$"param3 == ""{kvp.Value}""" : null).Where(v => v is not null))}) {{
+							param5 += ""client_dev"";
 						}}
 					");
 					
-					// Get anchor to add echo.
 					var anchorMatch = Regex.Match(scopeText,
 						@"if\(g\.solarSystem\.type == ""pvp dom"" && param1 == ""local""\)");
 					if (!anchorMatch.Success)
@@ -1973,34 +1997,31 @@ class AFPatcher
             new PatchDescriptor("core.hud.components.playerList.PlayerListItem", [
 	            new Patch("Add [client_dev] tag to constructor", (ctx) =>
 	            {
-		            // Flattens script to remove new lines and carriage returns
+		            if (!ctx.GetGlobalContext().GetIdentifier<Dictionary<string, string>>("DEVELOPERS", out var developers))
+			            return null;
+		            
 		            var flatScript = Util.FlattenString(ctx.ScriptText);
-                    
-		            // Searches for the function definition
 		            var functionDefinitionMatch = Regex.Match(flatScript, @"public\s+function\s+PlayerListItem\s*\(.*?\)\s*");
 		            if (!functionDefinitionMatch.Success)
 			            return null;
-                    
-		            // Get function scope info
+		            
 		            var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
 		            if (scopeInfo is null)
 			            return null;
                     
 		            var scopeText = scopeInfo.ScopeText;
-		            
-		            // Try to anchor to 'else if(player.isModerator)'
+
 		            var anchorMatch = Regex.Match(scopeText, @"else if\(player\.isModerator\)");
 		            if (!anchorMatch.Success)
 			            return null;
-
-		            // Try to find scope of the anchor
+		            
 		            var anchorScope = Util.FindNextScope(scopeText, anchorMatch.Index + anchorMatch.Length);
 		            if (anchorScope is null)
 			            return null;
 		            
 		            var insertionPosition = anchorScope.Index + anchorScope.Length;
 		            var textToInsert = $@"
-						else if(player.id == ""steam76561199032900322"" || player.id == ""steam76561198188053594"") {{
+						else if({string.Join(" || ", developers!.Select(kvp => kvp.Value != "" ? @$"player.id == ""{kvp.Value}""" : null).Where(v => v is not null))}) {{
 							level.text = ""client dev"" + "" "" + level.text;
 							level.format.color = 0xC2FC03;
 						}}
@@ -2076,7 +2097,7 @@ class AFPatcher
 				new Patch("Add /rec command to open portable recycle (TheRealPancake)", (ctx) =>
 				{
 					// Gets the OPEN_PORTABLE_RECYCLE identifier name
-					if (!ctx.GetGlobalContext().GetIdentifier("OPEN_PORTABLE_RECYCLE", out var openPortableRecycleIdentifier))
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("OPEN_PORTABLE_RECYCLE", out var openPortableRecycleIdentifier))
 						return null;
 					
 					// Flattens script to remove new lines and carriage returns
@@ -2163,31 +2184,31 @@ class AFPatcher
 	            new Patch("Add buttons and sliders for special painting (mufenz)", (ctx) =>
 	            {
 		            // Gets the PAINT_MODE identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("PAINT_MODE", out var paintModeIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("PAINT_MODE", out var paintModeIdentifier))
 			            return null;
 		            
 		            // Gets the SET_EXTENDED identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("SET_EXTENDED", out var setExtendedIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("SET_EXTENDED", out var setExtendedIdentifier))
 			            return null;
 		            
 		            // Gets the SET_EXTREME identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("SET_EXTREME", out var setExtremeIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("SET_EXTREME", out var setExtremeIdentifier))
 			            return null;
 		            
 		            // Gets the SET_ORIGINAL identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("SET_ORIGINAL", out var setOriginalIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("SET_ORIGINAL", out var setOriginalIdentifier))
 			            return null;
 		            
 		            // Gets the SET_UNPAINT identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("SET_UNPAINT", out var setUnpaintIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("SET_UNPAINT", out var setUnpaintIdentifier))
 			            return null;
 		            
 		            // Gets the UPDATE_VISUALS identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("UPDATE_VISUALS", out var updateVisualsIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("UPDATE_VISUALS", out var updateVisualsIdentifier))
 			            return null;
 		            
 		            // Gets the CUSTOM_TEST_DRIVE identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("CUSTOM_TEST_DRIVE", out var customTestDriveIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("CUSTOM_TEST_DRIVE", out var customTestDriveIdentifier))
 			            return null;
 		            
 		            var flatScript = Util.FlattenString(ctx.ScriptText);
@@ -2413,56 +2434,67 @@ class AFPatcher
 	            new Patch("Add SET_EXTENDED, SET_EXTREME, SET_ORIGINAL, SET_UNPAINT, UPDATE_VISUALS, TEST_DRIVE functions (mufenz)", (ctx) =>
 	            {
 		            // Gets the PAINT_MODE identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("PAINT_MODE", out var paintModeIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("PAINT_MODE", out var paintModeIdentifier))
 			            return null;
 		            
 		            // Gets the SET_EXTENDED identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("SET_EXTENDED", out var setExtendedIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("SET_EXTENDED", out var setExtendedIdentifier))
 			            return null;
 		            
 		            // Gets the SET_EXTREME identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("SET_EXTREME", out var setExtremeIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("SET_EXTREME", out var setExtremeIdentifier))
 			            return null;
 		            
 		            // Gets the SET_ORIGINAL identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("SET_ORIGINAL", out var setOriginalIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("SET_ORIGINAL", out var setOriginalIdentifier))
 			            return null;
 		            
 		            // Gets the SET_UNPAINT identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("SET_UNPAINT", out var setUnpaintIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("SET_UNPAINT", out var setUnpaintIdentifier))
 			            return null;
 		            
 		            // Gets the UPDATE_VISUALS identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("UPDATE_VISUALS", out var updateVisualsIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("UPDATE_VISUALS", out var updateVisualsIdentifier))
 			            return null;
 		            
 		            // Gets the TEST_DRIVE identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("TEST_DRIVE", out var testDriveIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("TEST_DRIVE", out var testDriveIdentifier))
 			            return null;
 		            
 		            // Gets the CUSTOM_TEST_DRIVE identifier name
-		            if (!ctx.GetGlobalContext().GetIdentifier("CUSTOM_TEST_DRIVE", out var customTestDriveIdentifier))
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("CUSTOM_TEST_DRIVE", out var customTestDriveIdentifier))
+			            return null;
+		            
+		            // Gets the fitness line identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("ENGINE_COLOR", out var engineColorIdentifier))
 			            return null;
 
 		            var functionsToInsert = Util.FlattenString($@"
+						public function reEnter(): void {{
+							leave();
+							starling.core.Starling.juggler.delayCall(function():void {{
+								g.fadeIntoState(new LandedPaintShop(g,body));
+							}},1);
+						}}
+
 						public function {setExtendedIdentifier}(e:TouchEvent = null): void {{
 							g.{paintModeIdentifier} = ""Extended"";
-							leave();
+							reEnter();
 						}}
 						
 						public function {setExtremeIdentifier}(e:TouchEvent = null): void {{
 							g.{paintModeIdentifier} = ""Extreme"";
-							leave();
+							reEnter();
 						}}
 						
 						public function {setOriginalIdentifier}(e:TouchEvent = null): void {{
 							g.{paintModeIdentifier} = ""Original"";
-							leave();
+							reEnter();
 						}}
 						
 						public function {setUnpaintIdentifier}(e:TouchEvent = null): void {{
 							g.{paintModeIdentifier} = ""Un-Paint"";
-							leave();
+							reEnter();
 						}}
 						
 						public function {updateVisualsIdentifier}(): void {{
@@ -2472,8 +2504,8 @@ class AFPatcher
 							filter.adjustSaturation(sliderShipSaturation.value);
 							filter.adjustContrast(sliderShipContrast.value);
 							preview.movieClip.filter = filter;
-							for each(filter in emitters) {{
-								filter.changeHue(sliderEngineHue.value);
+							for each(emitter in emitters) {{
+								emitter.changeHue(sliderEngineHue.value);
 							}}
 						}}
 						
@@ -2490,9 +2522,10 @@ class AFPatcher
 						public function {customTestDriveIdentifier}(e:TouchEvent = null) : void
 						{{
 							leave();
+							g.enterState(new RoamingState(g));
 							starling.core.Starling.juggler.delayCall({testDriveIdentifier},1);
 							starling.core.Starling.juggler.delayCall({testDriveIdentifier},2);
-							g.me.enginePaint = sliderEngineHue.value;
+							g.me.{engineColorIdentifier} = sliderEngineHue.value;
 						}}
 					");
                     
@@ -2519,6 +2552,223 @@ class AFPatcher
                     
 		            return new PatchResult(flatScript);
 	            })
+            ]),
+            new PatchDescriptor("core.player.Player", [
+	            new Patch("Add ENGINE_COLOR variable (mufenz)", (ctx) =>
+	            {
+		            // Gets the fitness line identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("ENGINE_COLOR", out var engineColorIdentifier))
+			            return null;
+                    
+		            // The text to insert
+		            var insertingText = $@"public var {engineColorIdentifier}:Number = 0;";
+                    
+		            // Flattens script to remove new lines and carriage returns
+		            var flatScript = Util.FlattenString(ctx.ScriptText);
+                    
+		            // Add ENGINE_COLOR variable to core.player.Player
+		            {
+			            // Tries to match Player class declaration
+			            var match = Regex.Match(flatScript, @"public class Player{");
+			            if (match.Success)
+			            {
+				            // Sets the position to the end of the match
+				            var position = match.Index + match.Length;
+                            
+				            // Splits the first and the last part of the script text to insert text in between
+				            var firstPart = flatScript.Substring(0, position);
+				            var lastPart = flatScript.Substring(position);
+                            
+				            // Inserts text in between firstPart and lastPart
+				            flatScript = $"{firstPart}{insertingText}{lastPart}";
+			            }
+		            }
+                    
+		            return new PatchResult(flatScript);
+	            })
+            ]),
+            new PatchDescriptor("core.ship.ShipFactory", [
+	            new Patch("Set engine color in createPlayer (mufenz)", (ctx) =>
+	            {
+		            // Gets the fitness line identifier name
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("ENGINE_COLOR", out var engineColorIdentifier))
+			            return null;
+		            
+		            var flatScript = Util.FlattenString(ctx.ScriptText);
+		            var functionDefinitionMatch = Regex.Match(flatScript, @"public\s+static\s+function\s+createPlayer\s*\(.*?\)\s*:\s*\w+");
+		            if (!functionDefinitionMatch.Success)
+			            return null;
+		            
+		            var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
+		            if (scopeInfo is null)
+			            return null;
+                    
+		            var scopeText = scopeInfo.ScopeText;
+		            var setEngineColorToInsert = Util.FlattenString($@"
+						if(param2.{engineColorIdentifier} != 0) {{
+							param3.engine.colorHue = param2.{engineColorIdentifier};
+							param2.{engineColorIdentifier} = 0;
+						}}
+					");
+		            
+		            {
+			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
+			            var anchorMatch = Regex.Match(scopeText,
+				            @"param\d+\.engine\.colorHue\s+=\s+[^""]*;()CreatePlayerShipWeapon\(.*?\);");
+		            
+			            if (!anchorMatch.Success)
+				            return null;
+
+			            {
+				            // Insert text in between the strings
+				            var first = scopeText.Substring(0, anchorMatch.Groups[1].Index);
+				            var second = scopeText.Substring(anchorMatch.Groups[1].Index);
+				            scopeText = $"{first}{setEngineColorToInsert}{second}";
+			            }
+		            }
+		            
+		            {
+			            // Split original script and re-insert block of function
+			            var first = flatScript.Substring(0, scopeInfo.Index);
+			            var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
+			            flatScript = $"{first}{scopeText}{last}";
+		            }
+		            
+		            return new PatchResult(flatScript);
+	            })
+            ]),
+            new PatchDescriptor("Login", [
+				new Patch("Add version and title client text in init (ryd3v)", (ctx) =>
+				{
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("CLIENT_VERSION", out var clientVersion))
+						return null;
+					
+					if (!ctx.GetGlobalContext().GetIdentifier<Dictionary<string, string>>("DEVELOPERS", out var developers))
+						return null;
+					
+					var flatScript = Util.FlattenString(ctx.ScriptText);
+					var functionDefinitionMatch = Regex.Match(flatScript, @"private\s+function\s+init\s*\(.*?\)\s*:\s*\w+");
+					if (!functionDefinitionMatch.Success)
+						return null;
+					
+					var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
+					if (scopeInfo is null)
+						return null;
+                    
+					var scopeText = scopeInfo.ScopeText;
+					var textToInsert = Util.FlattenString($@"
+						var infoText:TextField = new TextField(0, 0, """", new TextFormat(""DAIDRR"", 12, 0xffffff));
+				        infoText.x = 10;
+				        infoText.y = 10;
+				        infoText.autoSize = starling.text.TextFieldAutoSize.BOTH_DIRECTIONS;
+				        infoText.format.horizontalAlign = starling.utils.Align.LEFT;
+				        infoText.text = 
+								""QoLAF - v{clientVersion} (Auto-Patched)\n"" +
+				                ""Contains modifications from:\n"" + 
+								{string.Join("\n + ", developers!.Select(kvp => @$"""  - {kvp.Key}\n"""))};
+				        addChild(infoText);
+					");
+					
+					{
+						var anchorMatch = Regex.Match(scopeText,
+							@"addChild\(logoContainer\);()if\(!RymdenRunt\.isDesktop\)");
+		            
+						if (!anchorMatch.Success)
+							return null;
+
+						var first = scopeText.Substring(0, anchorMatch.Groups[1].Index);
+						var second = scopeText.Substring(anchorMatch.Groups[1].Index);
+						scopeText = $"{first}{textToInsert}{second}";
+					}
+					{
+						var first = flatScript.Substring(0, scopeInfo.Index);
+						var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
+						flatScript = $"{first}{scopeText}{last}";
+					}
+					
+					return new PatchResult(flatScript);
+				})
+            ]),
+            new PatchDescriptor("core.drops.Drop", [
+				new Patch("Double Unique Artifact emitters size and max particles (TheLostOne)", (ctx) =>
+				{
+					var flatScript = Util.FlattenString(ctx.ScriptText);
+					var functionDefinitionMatch = Regex.Match(flatScript, @"public\s+function\s+addToCanvasForReal\s*\(.*?\)\s*:\s*\w+");
+					if (!functionDefinitionMatch.Success)
+						return null;
+					
+					var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
+					if (scopeInfo is null)
+						return null;
+                    
+					var scopeText = scopeInfo.ScopeText;
+					var textToInsert = Util.FlattenString($@"
+						for each (var e:core.particle.Emitter in effect) {{
+							e.startSize *= 2;
+							e.finishSize *= 2;
+							e.maxParticles *= 2;
+						}}
+					");
+					
+					{
+						var anchorMatch = Regex.Match(scopeText,
+							@"effect\[\d+\]\.startColor\s+=\s+[^""]+;()effect\[\d+\]\.finishColor\s+=\s+[^""]+;");
+		            
+						if (!anchorMatch.Success)
+							return null;
+
+						var first = scopeText.Substring(0, anchorMatch.Groups[1].Index);
+						var second = scopeText.Substring(anchorMatch.Groups[1].Index);
+						scopeText = $"{first}{textToInsert}{second}";
+					}
+					{
+						var first = flatScript.Substring(0, scopeInfo.Index);
+						var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
+						flatScript = $"{first}{scopeText}{last}";
+					}
+					
+					return new PatchResult(flatScript);
+				}),
+				new Patch("Fix drop render distance for zoom", (ctx) =>
+				{
+					// Gets the zoom identifier name
+                    if (!ctx.GetGlobalContext().GetIdentifier<string>("ZOOM_FACTOR", out var zoomIdentifier))
+                        return null;
+                    
+                    // Flattens script to remove new lines and carriage returns
+                    var flatScript = Util.FlattenString(ctx.ScriptText);
+                    
+                    // Searches for the function definition
+                    var functionDefinitionMatch = Regex.Match(flatScript, @"public\s+function\s+updateIsNear\s*\(.*?\)\s*:\s*\w+");
+                    if (!functionDefinitionMatch.Success)
+                        return null;
+                    
+                    // Get function scope info
+                    var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
+                    if (scopeInfo is null)
+                        return null;
+                    
+                    var scopeText = scopeInfo.ScopeText;
+                    
+                    // Find 'if(distanceToCamera < _loc(\d*)_)' on the function scope text
+                    var match = Regex.Match(scopeText, @"if\(distanceToCamera\s*<\s*_loc(\d*)_\)");
+                    if (!match.Success)
+                        return null;
+
+                    // Build new condition replacement
+                    var newConditionReplacement =
+                        $"if(distanceToCamera * g.{zoomIdentifier} < _loc{match.Groups[1].Value}_)";
+                    
+                    // Replace the old condition with the new one
+                    scopeText = scopeText.Replace(match.Value, newConditionReplacement);
+                    
+                    // Split original script and re-insert block of function
+                    var first = flatScript.Substring(0, scopeInfo.Index);
+                    var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
+                    flatScript = $"{first}{scopeText}{last}";
+                    
+                    return new PatchResult(flatScript);
+				})
             ])
         ]);
     }

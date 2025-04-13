@@ -39,7 +39,7 @@ public class Util
         
         return process;
     }
-
+    
     public static ScopeInfo? FindNextScope(string text, int startIndex)
     {
         if (startIndex < 0 || startIndex >= text.Length)
@@ -77,5 +77,13 @@ public class Util
         }
 
         return null;
+    }
+
+    public static void WriteLine(object? value = null, ConsoleColor color = ConsoleColor.Gray)
+    {
+        var oldColor = Console.ForegroundColor;
+        Console.ForegroundColor = color;
+        Console.WriteLine(value);
+        Console.ForegroundColor = oldColor;
     }
 }
