@@ -625,6 +625,9 @@ class AFPatcher
 	                if (!ctx.GetGlobalContext().GetIdentifier<string>("CLIENT_DEV_HUE_COLOR", out var clientDevHueColorIdentifier))
 		                return null;
 	                
+	                if (!ctx.GetGlobalContext().GetIdentifier<Dictionary<string, string>>("DEVELOPERS", out var developers))
+		                return null;
+	                
 	                // Flattens script to remove new lines and carriage returns
 	                var flatScript = Util.FlattenString(ctx.ScriptText);
                     
@@ -641,7 +644,7 @@ class AFPatcher
 	                var scopeText = scopeInfo.ScopeText;
 	                var textToInsert = Util.FlattenString($@"
 						for each(var player in playerManager.players) {{
-							if(!(player.id != ""steam76561198188053594"" && player.id != ""steam76561199032900322"")) {{
+							if(!({string.Join(" && ", developers!.Select(kvp => kvp.Value != "" ? @$"player.id != ""{kvp.Value}""" : null).Where(v => v is not null))})) {{
 								if(player.ship != null && player.ship.engine != null && player.ship.engine.thrustEmitters != null && player.ship.engine.idleThrustEmitters != null) {{
 									for each(var emitter in player.ship.engine.thrustEmitters) {{
 										emitter.changeHue({clientDevHueColorIdentifier});
