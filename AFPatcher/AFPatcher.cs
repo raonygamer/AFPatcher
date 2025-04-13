@@ -663,19 +663,10 @@ class AFPatcher
 					");
 
 	                {
-		                // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
-		                var anchorMatch = Regex.Match(scopeText,
-			                @"deathLineManager\.update\(\);()if\(pvpManager\s+!=\s+null\)");
-		            
-		                if (!anchorMatch.Success)
-			                return null;
-
-		                {
-			                // Insert text in between the strings
-			                var first = scopeText.Substring(0, anchorMatch.Groups[1].Index);
-			                var second = scopeText.Substring(anchorMatch.Groups[1].Index);
-			                scopeText = $"{first}{textToInsert}{second}";
-		                }
+		                // Insert text in between the strings
+		                var first = scopeText.Substring(0, scopeInfo.Length - 1);
+		                var second = "}";
+		                scopeText = $"{first}{textToInsert}{second}";
 	                }
 	                
 	                {
@@ -2316,7 +2307,7 @@ class AFPatcher
 		            {
 			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
 			            var anchorMatch = Regex.Match(scopeText,
-				            @"addShip\(\);()[^""]*\s+=\s+dataManager\.loadKey\(""Skins"",g\.me\.activeSkin\);");
+				            @"(?:this.)?addShip\(\);()[^""]*\s+=\s+dataManager\.loadKey\(""Skins"",(?:this.)?g\.me\.activeSkin\);");
 		            
 			            if (!anchorMatch.Success)
 				            return null;
@@ -2332,7 +2323,7 @@ class AFPatcher
 		            {
 			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
 			            var anchorMatch = Regex.Match(scopeText,
-				            @"sliderShipHue\.maximum\s+=\s+1\.8707963267948966;()sliderShipHue\.width\s+=\s+200;");
+				            @"(?:this.)?sliderShipHue\.maximum\s+=\s+1\.8707963267948966;()(?:this.)?sliderShipHue\.width\s+=\s+200;");
 		            
 			            if (!anchorMatch.Success)
 				            return null;
@@ -2348,7 +2339,7 @@ class AFPatcher
 		            {
 			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
 			            var anchorMatch = Regex.Match(scopeText,
-				            @"sliderShipBrightness\.maximum\s+=\s+0\.04;()sliderShipBrightness\.width\s+=\s+200;");
+				            @"(?:this.)?sliderShipBrightness\.maximum\s+=\s+0\.04;()(?:this.)?sliderShipBrightness\.width\s+=\s+200;");
 		            
 			            if (!anchorMatch.Success)
 				            return null;
@@ -2364,7 +2355,7 @@ class AFPatcher
 		            {
 			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
 			            var anchorMatch = Regex.Match(scopeText,
-				            @"sliderShipSaturation\.maximum\s+=\s+1;()sliderShipSaturation\.width\s+=\s+200;");
+				            @"(?:this.)?sliderShipSaturation\.maximum\s+=\s+1;()(?:this.)?sliderShipSaturation\.width\s+=\s+200;");
 		            
 			            if (!anchorMatch.Success)
 				            return null;
@@ -2380,7 +2371,7 @@ class AFPatcher
 		            {
 			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
 			            var anchorMatch = Regex.Match(scopeText,
-				            @"sliderShipContrast\.maximum\s+=\s+1;()sliderShipContrast\.width\s+=\s+200;");
+				            @"(?:this.)?sliderShipContrast\.maximum\s+=\s+1;()(?:this.)?sliderShipContrast\.width\s+=\s+200;");
 		            
 			            if (!anchorMatch.Success)
 				            return null;
@@ -2396,7 +2387,7 @@ class AFPatcher
 		            {
 			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
 			            var anchorMatch = Regex.Match(scopeText,
-				            @"sliderEngineHue\.maximum\s+=\s+3\.141592653589793;()sliderEngineHue\.width\s+=\s+200;");
+				            @"(?:this.)?sliderEngineHue\.maximum\s+=\s+3\.141592653589793;()(?:this.)?sliderEngineHue\.width\s+=\s+200;");
 		            
 			            if (!anchorMatch.Success)
 				            return null;
@@ -2412,7 +2403,7 @@ class AFPatcher
 		            {
 			            // Comment cuz this is kinda confusing, I have an empty capture to split the match in 2 parts (it's an anchor to insert text in between)
 			            var anchorMatch = Regex.Match(scopeText,
-				            @"loadCompleted\(\);()if\(RymdenRunt\.isBuggedFlashVersion\)");
+				            @"(?:this.)?loadCompleted\(\);()if\(RymdenRunt\.isBuggedFlashVersion\)");
 		            
 			            if (!anchorMatch.Success)
 				            return null;
@@ -2674,7 +2665,7 @@ class AFPatcher
 					
 					{
 						var anchorMatch = Regex.Match(scopeText,
-							@"addChild\(logoContainer\);()if\(!RymdenRunt\.isDesktop\)");
+							@"addChild\((?:this.)?logoContainer\);()if\(!RymdenRunt\.isDesktop\)");
 		            
 						if (!anchorMatch.Success)
 							return null;
