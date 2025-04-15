@@ -149,7 +149,7 @@ class AFPatcher
                 { "SET_PURIFY_STATS", "setPurifyStats" },
                 { "OPEN_PORTABLE_RECYCLE", "openPortableRecycle" },
                 { "SERVER_VERSION", 1389 },
-                { "CLIENT_VERSION", "1.0.5" },
+                { "CLIENT_VERSION", "1.0.5 LS" },
                 { 
 	                "DEVELOPERS", 
 	                new Dictionary<string, string>()
