@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using AFPatcher.Models;
@@ -58,7 +59,7 @@ class AFPatcher
                 continue;
             }
             
-            var text = await File.ReadAllTextAsync(file);
+            var text = Util.FlattenString(await File.ReadAllTextAsync(file));
             Util.WriteLine($"Patching '{desc.FullyQualifiedName}'...", ConsoleColor.DarkCyan);
             int successPatches = 0;
             foreach (var patch in desc.Patches)
@@ -3094,6 +3095,20 @@ class AFPatcher
 	                
 	                return new PatchResult(flatScript);
 	            })
+            ]),
+            new PatchDescriptor("core.hud.components.techTree.TechTree", [
+				new Patch("Reduce weapon upgrade animation time by 85%", (ctx) =>
+				{
+					var text = ctx.ScriptText;
+					var matches = Regex.Matches(text, @"TweenMax\.from\(\s*([^,]*?)\s*,\s*([0-9.+\-eE]+)\s*,");
+					for (var i = 0; i < matches.Count; i++)
+					{
+						var target = matches[i].Groups[1].Value;
+						var time = (double.Parse(matches[i].Groups[2].Value) * 0.15f).ToString(CultureInfo.InvariantCulture);
+						text = text.Replace(matches[i].Value, $@"TweenMax.from({target},{time},");
+					}
+					return new PatchResult(text);
+				})
             ])
         ]);
     }
