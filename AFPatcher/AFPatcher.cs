@@ -86,12 +86,14 @@ class AFPatcher
             changedScripts.Add($"{desc.FullyQualifiedName} {file}");
         }
 
+        #if DEBUG
         Process.Start(new ProcessStartInfo
         {
             FileName = "cmd",
             Arguments = $"/c start {DecompilationDirectory}",
             UseShellExecute = true
         });
+        #endif
         
         Directory.CreateDirectory(Path.Combine(TemporaryDirectory, "recompiled"));
         await (Util.InvokeFFDec([string.Join(" ", ["-replace", swfFile, Path.Combine(TemporaryDirectory, "recompiled", Path.GetFileName(swfFile)), ..changedScripts])])?.WaitForExitAsync() ?? Task.CompletedTask);
@@ -146,7 +148,7 @@ class AFPatcher
                 { "SET_PURIFY_STATS", "setPurifyStats" },
                 { "OPEN_PORTABLE_RECYCLE", "openPortableRecycle" },
                 { "SERVER_VERSION", 1389 },
-                { "CLIENT_VERSION", "1.0.3" },
+                { "CLIENT_VERSION", "1.0.5" },
                 { 
 	                "DEVELOPERS", 
 	                new Dictionary<string, string>()
@@ -169,7 +171,10 @@ class AFPatcher
                 { "DELTA_TIME", "deltaTime" },
                 { "CLIENT_DEV_HUE_COLOR", "clientDevHueColor" },
                 { "ENGINE_COLOR", "engineColor" },
-                { "ECHO_COLOR", "#6f32a8" }
+                { "ECHO_COLOR", "#ff4400" },
+                { "DETERMINED_COLOR", "determinedColor" },
+                { "DETERMINED_HUE", "determinedHue" },
+                { "ECHO_FORMAT", "<font color='{0}'>QoLAF (Server {1} / v{2})</font>" }
             }),
             [
             new PatchDescriptor("core.scene.Game", [
@@ -1852,13 +1857,12 @@ class AFPatcher
 				{
 					if (!ctx.GetGlobalContext().GetIdentifier<int>("SERVER_VERSION", out var serverVersion))
 						return null;
-					
 					if (!ctx.GetGlobalContext().GetIdentifier<string>("CLIENT_VERSION", out var clientVersion))
 						return null;
-					
 					if (!ctx.GetGlobalContext().GetIdentifier<string>("ECHO_COLOR", out var echoColor))
 						return null;
-					
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("ECHO_FORMAT", out var echoFormat))
+						return null;
 					if (!ctx.GetGlobalContext().GetIdentifier<Dictionary<string, string>>("DEVELOPERS", out var developers))
 						return null;
 					
@@ -1876,10 +1880,10 @@ class AFPatcher
 					var echoBlock = Util.FlattenString($@"
 						if(param2 == ""echo."" && g.me.id != param3) {{
 							if(param1 == ""global"" || param1 == ""private"") {{
-								g.sendToServiceRoom(""chatMsg"",""private"",param4,""<b><font color=\'{echoColor}\'>QoLAF (Server {serverVersion} / v{clientVersion}) (Auto-Patched)</font></b>"");
+								g.sendToServiceRoom(""chatMsg"",""private"",param4,""{string.Format(echoFormat!, echoColor, serverVersion, clientVersion)}"");
 							}}
 							else {{
-								g.sendToServiceRoom(""chatMsg"",""local"",""<b><font color=\'{echoColor}\'>QoLAF (Server {serverVersion} / v{clientVersion}) (Auto-Patched)</font></b>"");
+								g.sendToServiceRoom(""chatMsg"",""local"",""{string.Format(echoFormat!, echoColor, serverVersion, clientVersion)}"");
 							}}
 						}}
 					");
@@ -2093,6 +2097,14 @@ class AFPatcher
 					// Gets the OPEN_PORTABLE_RECYCLE identifier name
 					if (!ctx.GetGlobalContext().GetIdentifier<string>("OPEN_PORTABLE_RECYCLE", out var openPortableRecycleIdentifier))
 						return null;
+					if (!ctx.GetGlobalContext().GetIdentifier<int>("SERVER_VERSION", out var serverVersion))
+						return null;
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("CLIENT_VERSION", out var clientVersion))
+						return null;
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("ECHO_COLOR", out var echoColor))
+						return null;
+					if (!ctx.GetGlobalContext().GetIdentifier<string>("ECHO_FORMAT", out var echoFormat))
+						return null;
 					
 					// Flattens script to remove new lines and carriage returns
 					var flatScript = Util.FlattenString(ctx.ScriptText);
@@ -2123,6 +2135,9 @@ class AFPatcher
 					var caseToInsert = Util.FlattenString(@$"
 						case ""rec"":
 							g.{openPortableRecycleIdentifier}();
+							break;
+						case ""echo"":
+							MessageLog.writeChatMsg(""death"",""Your client is: {string.Format(echoFormat!, echoColor, serverVersion, clientVersion)}"");
 							break;
 					");
 
@@ -2684,7 +2699,7 @@ class AFPatcher
 				})
             ]),
             new PatchDescriptor("core.drops.Drop", [
-				new Patch("Double Unique Artifact emitters size and max particles (TheLostOne)", (ctx) =>
+				new Patch("Multiply Unique Artifact emitters size and max particles by 1.5 (TheLostOne)", (ctx) =>
 				{
 					var flatScript = Util.FlattenString(ctx.ScriptText);
 					var functionDefinitionMatch = Regex.Match(flatScript, @"public\s+function\s+addToCanvasForReal\s*\(.*?\)\s*:\s*\w+");
@@ -2698,9 +2713,9 @@ class AFPatcher
 					var scopeText = scopeInfo.ScopeText;
 					var textToInsert = Util.FlattenString($@"
 						for each (var e:core.particle.Emitter in effect) {{
-							e.startSize *= 2;
-							e.finishSize *= 2;
-							e.maxParticles *= 2;
+							e.startSize *= 1.5;
+							e.finishSize *= 1.5;
+							e.maxParticles *= 1.5;
 						}}
 					");
 					
@@ -2763,6 +2778,322 @@ class AFPatcher
                     
                     return new PatchResult(flatScript);
 				})
+            ]),
+            new PatchDescriptor("core.weapon.Beam", [
+	            new Patch("Add [client_dev] beam rainbow on draw function", (ctx) =>
+	            {
+		            // Gets the CLIENT_DEV_HUE_COLOR identifier name
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("CLIENT_DEV_HUE_COLOR", out var clientDevHueColorIdentifier))
+		                return null;
+	                
+	                if (!ctx.GetGlobalContext().GetIdentifier<Dictionary<string, string>>("DEVELOPERS", out var developers))
+		                return null;
+	                
+	                // Flattens script to remove new lines and carriage returns
+	                var flatScript = Util.FlattenString(ctx.ScriptText);
+                    
+	                // Searches for the function definition
+	                var functionDefinitionMatch = Regex.Match(flatScript, @"override\s+public\s+function\s+draw\s*\(.*?\)\s*:\s*\w+");
+	                if (!functionDefinitionMatch.Success)
+		                return null;
+                    
+	                // Get function scope info
+	                var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
+	                if (scopeInfo is null)
+		                return null;
+
+	                var scopeText = scopeInfo.ScopeText;
+	                var textToInsert = Util.FlattenString($@"
+						if(unit is core.ship.PlayerShip) {{
+							var player:core.player.Player = (unit as core.ship.PlayerShip).player;
+							if (!({string.Join(" && ", developers!.Select(kvp => kvp.Value != "" ? @$"player.id != ""{kvp.Value}""" : null).Where(v => v is not null))})) {{
+								for (var i:int = 0; i < lines.length; i++) {{
+									var line:BeamLine = lines[i];
+									line.color = generics.Color.HEXHue(beamColor,g.{clientDevHueColorIdentifier});
+								}}
+
+								for each(var emitter:Emitter in startEffect) {{
+									emitter.changeHue(g.{clientDevHueColorIdentifier});
+								}}
+
+								for each(var emitter:Emitter in startEffect2) {{
+									emitter.changeHue(g.{clientDevHueColorIdentifier});
+								}}
+
+								for each(var emitter:Emitter in endEffect) {{
+									emitter.changeHue(g.{clientDevHueColorIdentifier});
+								}}
+							}}
+						}}
+					");
+
+	                {
+		                var indexToInsert = 0;
+		                {
+			                var anchorMatch = Regex.Match(scopeText, @"if\s*\(_loc\d+_\s*<\s*0\.3\)()");
+			                if (!anchorMatch.Success)
+				                return null;
+			                var anchorScope = Util.FindNextScope(scopeText, anchorMatch.Index + anchorMatch.Length);
+			                if (anchorScope is null)
+				                return null;
+			                indexToInsert = anchorScope.Index + anchorScope.Length;
+		                }
+		                
+		                // Insert text in between the strings
+		                var first = scopeText.Substring(0, indexToInsert);
+		                var second = scopeText.Substring(indexToInsert);
+		                scopeText = $"{first}{textToInsert}{second}";
+	                }
+	                
+	                {
+		                // Split original script and re-insert block of function
+		                var first = flatScript.Substring(0, scopeInfo.Index);
+		                var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
+		                flatScript = $"{first}{scopeText}{last}";
+	                }
+	                
+	                return new PatchResult(flatScript);
+	            })
+            ]),
+            new PatchDescriptor("core.projectile.Projectile", [
+	            new Patch("Add DETERMINED_COLOR, DETERMINED_HUE variables", (ctx) =>
+	            {
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("DETERMINED_COLOR", out var determinedColorIdentifier))
+			            return null;
+		            if (!ctx.GetGlobalContext().GetIdentifier<string>("DETERMINED_HUE", out var determinedHueIdentifier))
+			            return null;
+		            
+		            var insertingText = Util.FlattenString($@"
+						public var {determinedColorIdentifier}:Number = NaN;
+						public var {determinedHueIdentifier}:Number = NaN;
+					");
+		            
+		            var flatScript = Util.FlattenString(ctx.ScriptText);
+		            {
+			            var match = Regex.Match(flatScript, @"public class Projectile extends GameObject{");
+			            if (match.Success)
+			            {
+				            var position = match.Index + match.Length;
+				            var firstPart = flatScript.Substring(0, position);
+				            var lastPart = flatScript.Substring(position);
+				            flatScript = $"{firstPart}{insertingText}{lastPart}";
+			            }
+		            }
+                    
+		            return new PatchResult(flatScript);
+	            }),
+	            new Patch("Add [client_dev] chroma to projectiles", (ctx) =>
+	            {
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("DETERMINED_COLOR", out var determinedColorIdentifier))
+		                return null;
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("DETERMINED_HUE", out var determinedHueIdentifier))
+		                return null;
+
+		            var flatScript = Util.FlattenString(ctx.ScriptText);
+	                {
+		                var functionDefinitionMatch = Regex.Match(flatScript, @"override\s+public\s+function\s+update\s*\(.*?\)\s*:\s*\w+");
+		                if (!functionDefinitionMatch.Success)
+			                return null;
+		                
+		                var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
+		                if (scopeInfo is null)
+			                return null;
+
+		                var scopeText = scopeInfo.ScopeText;
+		                var updateTextToInsert = Util.FlattenString($@"
+							if(!isNaN({determinedColorIdentifier}) && !isNaN({determinedHueIdentifier})) {{
+								movieClip.color = {determinedColorIdentifier};
+								for each(var e:Emitter in thrustEmitters) {{
+									e.changeHue({determinedHueIdentifier});
+								}}
+							}}
+						");
+
+		                {
+			                var indexToInsert = 0;
+			                {
+				                var anchorMatch = Regex.Match(scopeText, @"if\s*\(alive\)()");
+				                if (!anchorMatch.Success)
+					                return null;
+				                var anchorScope = Util.FindNextScope(scopeText, anchorMatch.Index + anchorMatch.Length);
+				                if (anchorScope is null)
+					                return null;
+				                indexToInsert = anchorScope.Index + 1;
+			                }
+			                
+			                // Insert text in between the strings
+			                var first = scopeText.Substring(0, indexToInsert);
+			                var second = scopeText.Substring(indexToInsert);
+			                scopeText = $"{first}{updateTextToInsert}{second}";
+		                }
+		                
+		                {
+			                // Split original script and re-insert block of function
+			                var first = flatScript.Substring(0, scopeInfo.Index);
+			                var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
+			                flatScript = $"{first}{scopeText}{last}";
+		                }
+	                }
+	                
+	                {
+		                var functionDefinitionMatch = Regex.Match(flatScript, @"public\s+function\s+explode\s*\(.*?\)\s*:\s*\w+");
+		                if (!functionDefinitionMatch.Success)
+			                return null;
+		                
+		                var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
+		                if (scopeInfo is null)
+			                return null;
+
+		                var scopeText = scopeInfo.ScopeText;
+		                
+
+		                {
+			                var indexToInsert = 0;
+			                var localIndexString = "0";
+			                {
+				                var anchorMatch = Regex.Match(scopeText, @"_loc(\d+)_\s*=\s*EmitterFactory\.create\(explosionEffect,g,pos\.x,pos\.y,param\d+,true\);()if\s*\(param\d+\)");
+				                if (!anchorMatch.Success)
+					                return null;
+				                localIndexString = anchorMatch.Groups[1].Value;
+				                indexToInsert = anchorMatch.Groups[2].Index + anchorMatch.Groups[2].Length;
+			                }
+			                
+			                var explodeTextToInsert = Util.FlattenString($@"
+								if (!isNaN({determinedColorIdentifier}) && !isNaN({determinedHueIdentifier})) {{
+									for each(var e:Emitter in _loc{localIndexString}_) {{
+										e.changeHue({determinedHueIdentifier});
+									}}
+								}}
+							");
+			                
+			                // Insert text in between the strings
+			                var first = scopeText.Substring(0, indexToInsert);
+			                var second = scopeText.Substring(indexToInsert);
+			                scopeText = $"{first}{explodeTextToInsert}{second}";
+		                }
+		                
+		                {
+			                // Split original script and re-insert block of function
+			                var first = flatScript.Substring(0, scopeInfo.Index);
+			                var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
+			                flatScript = $"{first}{scopeText}{last}";
+		                }
+	                }
+	                
+	                return new PatchResult(flatScript);
+	            }),
+	            new Patch("Reset DETERMINED_COLOR, DETERMINED_HUE variables on reset function", (ctx) =>
+	            {
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("DETERMINED_COLOR", out var determinedColorIdentifier))
+		                return null;
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("DETERMINED_HUE", out var determinedHueIdentifier))
+		                return null;
+
+		            var flatScript = Util.FlattenString(ctx.ScriptText);
+		            
+		            var functionDefinitionMatch = Regex.Match(flatScript, @"override\s+public\s+function\s+reset\s*\(.*?\)\s*:\s*\w+");
+		            if (!functionDefinitionMatch.Success)
+			            return null;
+		                
+		            var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
+		            if (scopeInfo is null)
+			            return null;
+
+		            var scopeText = scopeInfo.ScopeText;
+		            var textToInsert = Util.FlattenString($@"
+						{determinedColorIdentifier} = NaN;
+						{determinedHueIdentifier} = NaN;
+					");
+		            
+		            {
+			            // Insert text in between the strings
+			            var first = "{";
+			            var second = scopeText.Substring(1);
+			            scopeText = $"{first}{textToInsert}{second}";
+		            }
+		            
+	                {
+		                // Split original script and re-insert block of function
+		                var first = flatScript.Substring(0, scopeInfo.Index);
+		                var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
+		                flatScript = $"{first}{scopeText}{last}";
+	                }
+	                return new PatchResult(flatScript);
+	            })
+            ]),
+            new PatchDescriptor("core.projectile.ProjectileFactory", [
+	            new Patch("Set projectiles DETERMINED_COLOR, DETERMINED_HUE variables", (ctx) =>
+	            {
+		            if (!ctx.GetGlobalContext().GetIdentifier<Dictionary<string, string>>("DEVELOPERS", out var developers))
+		                return null;
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("DETERMINED_COLOR", out var determinedColorIdentifier))
+		                return null;
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("DETERMINED_HUE", out var determinedHueIdentifier))
+		                return null;
+	                if (!ctx.GetGlobalContext().GetIdentifier<string>("CLIENT_DEV_HUE_COLOR", out var clientDevHueColorIdentifier))
+		                return null;
+
+		            var flatScript = Util.FlattenString(ctx.ScriptText);
+	                {
+		                var functionDefinitionMatch = Regex.Match(flatScript, @"public\s+static\s+function\s+create\s*\(.*?\)\s*:\s*\w+");
+		                if (!functionDefinitionMatch.Success)
+			                return null;
+		                
+		                var scopeInfo = Util.FindNextScope(flatScript, functionDefinitionMatch.Index + functionDefinitionMatch.Length);
+		                if (scopeInfo is null)
+			                return null;
+
+		                var scopeText = scopeInfo.ScopeText;
+		                
+
+		                {
+			                var indexToInsert = 0;
+			                var projectileDbObjLocalIndex = "0";
+			                var projectileObjLocalIndex = "0";
+			                {
+				                var anchorMatch = Regex.Match(scopeText, @"_loc(\d+)_\.blendMode\s*=\s*_loc(\d+)_\.blendMode;()if\s*\(_loc12_\.hasOwnProperty\(""aiAlwaysExplode""\)\)");
+				                if (!anchorMatch.Success)
+					                return null;
+				                projectileObjLocalIndex = anchorMatch.Groups[1].Value;
+				                projectileDbObjLocalIndex = anchorMatch.Groups[2].Value;
+				                var anchorScope = Util.FindNextScope(scopeText, anchorMatch.Index + anchorMatch.Length);
+				                if (anchorScope is null)
+					                return null;
+				                indexToInsert = anchorMatch.Groups[3].Index + anchorMatch.Groups[3].Length;
+			                }
+			                
+			                var textToInsert = Util.FlattenString($@"
+								_loc{projectileObjLocalIndex}_.{determinedHueIdentifier} = NaN;
+								_loc{projectileObjLocalIndex}_.{determinedColorIdentifier} = NaN;
+								_loc{projectileObjLocalIndex}_.movieClip.color = 0xffffff;
+								if(param3 is core.ship.PlayerShip) {{
+									var player:core.player.Player = (param3 as core.ship.PlayerShip).player;
+									if (!({string.Join(" && ", developers!.Select(kvp => kvp.Value != "" ? @$"player.id != ""{kvp.Value}""" : null).Where(v => v is not null))})) {{
+										_loc{projectileObjLocalIndex}_.{determinedHueIdentifier} = param2.{clientDevHueColorIdentifier};
+										_loc{projectileObjLocalIndex}_.{determinedColorIdentifier} = generics.Color.HEXHue(0xff00,_loc{projectileObjLocalIndex}_.{determinedHueIdentifier});
+										if (""ribbonColor"" in _loc{projectileDbObjLocalIndex}_) {{
+											_loc{projectileDbObjLocalIndex}_.ribbonColor = _loc{projectileObjLocalIndex}_.{determinedColorIdentifier};
+										}}
+									}}
+								}}
+							");
+			                
+			                // Insert text in between the strings
+			                var first = scopeText.Substring(0, indexToInsert);
+			                var second = scopeText.Substring(indexToInsert);
+			                scopeText = $"{first}{textToInsert}{second}";
+		                }
+		                
+		                {
+			                // Split original script and re-insert block of function
+			                var first = flatScript.Substring(0, scopeInfo.Index);
+			                var last = flatScript.Substring(scopeInfo.Index + scopeInfo.Length);
+			                flatScript = $"{first}{scopeText}{last}";
+		                }
+	                }
+	                
+	                return new PatchResult(flatScript);
+	            })
             ])
         ]);
     }

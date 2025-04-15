@@ -33,7 +33,11 @@ public class Util
         {
             while (process?.HasExited == false)
             {
+                #if DEBUG
                 Console.WriteLine(await (process?.StandardOutput.ReadLineAsync() ?? Task.FromResult<string>("")!));
+                #else
+                await (process?.StandardOutput.ReadLineAsync() ?? Task.FromResult<string>("")!);
+                #endif
             }
         });
         
