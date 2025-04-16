@@ -65,21 +65,22 @@ class AFPatcher
         
         var appliedPatches = new List<string>();
         var changedFiles = new List<string>();
-        foreach (var patchDesc in patchDescriptors)
+        var allPatches = (from patchDesc in patchDescriptors from patch in patchDesc.Patches select (patch, patchDesc, patch.Priority)).OrderByDescending(patch => patch.Priority);
+        foreach (var patch in allPatches)
         {
-            foreach (var patch in patchDesc.Patches)
+            try
             {
-                try
-                {
-                    PatchScript(globalContext, patchDescriptors, patchDesc, patch, appliedPatches, changedFiles);
-                    Log.SuccessLine($"Patch '{patch.Id}' applied successfully to '{patchDesc.ClassName}'.");
-                }
-                catch (PatchFailedException e)
-                {
-                    Log.ErrorLine($"Failed to apply patch '{patch.Id}' to '{patchDesc.ClassName}':\n    {e.Message}");
-                }
+                if (!PatchScript(globalContext, patchDescriptors, patch.patchDesc, patch.patch, appliedPatches, changedFiles))
+                    continue;
+                Log.SuccessLine($"Patch '{patch.patch.Id}' applied successfully to '{patch.patchDesc.ClassName}'.");
+            }
+            catch (PatchFailedException e)
+            {
+                Log.ErrorLine($"Failed to apply patch '{patch.patch.Id}' to '{patch.patchDesc.ClassName}':\n    {e.Message}");
             }
         }
+        
+        
         
         Log.TraceLine();
         
@@ -117,8 +118,11 @@ class AFPatcher
         File.Copy(newFile, saveSwfFile, true);
     }
 
-    private void PatchScript(GlobalPatchContext gCtx, IEnumerable<PatchDescriptor> descriptors, PatchDescriptor descriptor, PatchBase patchBase, List<string> appliedPatches, List<string> changedFiles)
+    private bool PatchScript(GlobalPatchContext gCtx, IEnumerable<PatchDescriptor> descriptors, PatchDescriptor descriptor, PatchBase patchBase, List<string> appliedPatches, List<string> changedFiles)
     {
+        if (appliedPatches.Contains(patchBase.Id))
+            return false;
+        
         var scriptFile = Path.Combine(DecompilationDirectory, $"scripts\\{descriptor.ClassName.Replace('.', '\\')}.as");
         var patchDescriptors = descriptors as PatchDescriptor[] ?? descriptors.ToArray();
         foreach (var dependency in patchBase.Dependencies)
@@ -147,9 +151,11 @@ class AFPatcher
         }
         var scriptContent = File.ReadAllText(scriptFile).Flatten();
         var result = patchBase.Apply(new PatchContext(gCtx, scriptContent, patchDescriptors, descriptor));
+        appliedPatches.Add(patchBase.Id);
         File.WriteAllText(scriptFile, result.Text);
         if (!changedFiles.Contains($"{descriptor.ClassName} {scriptFile}"))
             changedFiles.Add($"{descriptor.ClassName} {scriptFile}");
+        return true;
     }
     
     private bool DecompileClasses(string swfSource, IEnumerable<string> classes)

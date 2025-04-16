@@ -7,7 +7,7 @@ namespace AFPatcher.Patches
     namespace core.states.gameStates.PlayState
     {
         [Patch("add_check_zoom_function", "Add function for checking zoom factor", ["add_zoom_factor_variable"])]
-        public class AddCheckZoomFunctionPatch(string id, string name, string[] dependencies) : PatchBase(id, name, dependencies)
+        public class AddCheckZoomFunctionPatch(string id, string name, string[] dependencies, int priority) : PatchBase(id, name, dependencies, priority)
         {
             public override PatchResult Apply(PatchContext ctx)
             {

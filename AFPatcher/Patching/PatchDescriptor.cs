@@ -14,7 +14,7 @@ public class PatchDescriptor(string className, IEnumerable<PatchBase> patches)
             if (!t.IsAssignableTo(typeof(PatchBase)) || t.IsAbstract || t.GetCustomAttribute<PatchAttribute>() is null || t.Namespace?.EndsWith(className) == false)
                 return null;
             var patchAttr = t.GetCustomAttribute<PatchAttribute>()!;
-            return Activator.CreateInstance(t, [patchAttr.Id, patchAttr.Name, patchAttr.Dependencies]) as PatchBase;
-        }).Where(i => i is not null)!;
+            return Activator.CreateInstance(t, [patchAttr.Id, patchAttr.Name, patchAttr.Dependencies, patchAttr.Priority]) as PatchBase;
+        }).Where(i => i is not null).OrderBy(i => i!.Priority)!;
     }
 }
