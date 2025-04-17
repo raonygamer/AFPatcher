@@ -8,7 +8,7 @@ namespace AFPatcher.Patches
 {
     namespace core.states.gameStates.PlayState
     {
-        [Patch("call_check_zoom_function_on_update_commands", "Call check zoom function on updateCommands function", ["add_check_zoom_function"], 1)]
+        [Patch("call_check_zoom_function_on_update_commands", "Call check zoom function on updateCommands function", ["add_check_zoom_function"])]
         public class AddCheckZoomCallOnUpdateCommands(string id, string name, string[] dependencies, int priority) : PatchBase(id, name, dependencies, priority)
         {
             public override PatchResult Apply(PatchContext ctx)
@@ -57,7 +57,7 @@ namespace AFPatcher.Patches
             }
         }
         
-        [Patch("fix_camera_zoom_focus_calls_for_zoom", "Fix camera zoom focus calls for zoom", ["add_zoom_factor_variable"], 2)]
+        [Patch("fix_camera_zoom_focus_calls_for_zoom", "Fix camera zoom focus calls for zoom", ["add_zoom_factor_variable"], 1)]
         public class FixCameraZoomFocusCallsForZoom(string id, string name, string[] dependencies, int priority) : PatchBase(id, name, dependencies, priority)
         {
             public override PatchResult Apply(PatchContext ctx)

@@ -53,9 +53,12 @@ class AFPatcher
         Log.TraceLine();
         var globalContext = QoLAF.GetGlobalPatchContext();
         var patchDescriptors = QoLAF.GetPatchDescriptors();
+        var flattenedPatches = patchDescriptors
+            .SelectMany(d => d.Patches.Select(p => (Descriptor: d, Patch: p)))
+            .ToDictionary(t => t.Patch.Id);
         Log.TraceLine();
         
-        Log.TraceLine($"Found {patchDescriptors.Sum(d => d.Patches.Count())} patches.");
+        Log.TraceLine($"Found {flattenedPatches.Count} patches.");
         Log.TraceLine("Decompiling game...");
         if (!DecompileClasses(swfFile, patchDescriptors.Select(d => d.ClassName)))
         {
@@ -63,24 +66,37 @@ class AFPatcher
             return;
         }
         
+        var analyzer = new DependencyAnalyzer(flattenedPatches);
+        var sortedPatchIds = new List<string>();
+        try
+        {
+            sortedPatchIds = analyzer.TopologicalSort();
+            Log.TraceLine($"No cyclic dependencies detected.");
+            Log.TraceLine($"Sorted {flattenedPatches.Count} patches by dependency and priority.");
+        }
+        catch (CyclicDependencyException e)
+        {
+            Log.ErrorLine(e.Message);
+        }
+        
         var appliedPatches = new List<string>();
         var failedPatches = new List<string>();
         var changedFiles = new List<string>();
-        var allPatches = (from patchDesc in patchDescriptors from patch in patchDesc.Patches select (patch, patchDesc, patch.Priority)).OrderByDescending(patch => patch.Priority);
-        foreach (var patch in allPatches)
+        foreach (var id in sortedPatchIds)
         {
             try
             {
-                if (!PatchScript(globalContext, patchDescriptors, patch.patchDesc, patch.patch, appliedPatches, failedPatches, changedFiles))
-                    continue;
-                Log.SuccessLine($"Patch '{patch.patch.Id}' applied successfully to '{patch.patchDesc.ClassName}'.");
+                var (desc, patch) = flattenedPatches[id];
+                PatchScript(globalContext, desc, patch, appliedPatches, failedPatches, changedFiles);
+                Log.SuccessLine($"Patch '{id}' applied successfully on '{desc.ClassName}'.");
             }
             catch (Exception e)
             {
-                Log.ErrorLine($"Failed to apply patch '{patch.patch.Id}' to '{patch.patchDesc.ClassName}':\n    {e.Message}");
+                Log.ErrorLine($"Failed to apply patch '{id}':\n    {e.Message}");
             }
         }
-        
+
+        Console.ReadKey();
         Log.TraceLine();
         
 #if DEBUG
@@ -117,57 +133,32 @@ class AFPatcher
         File.Copy(newFile, saveSwfFile, true);
     }
 
-    private bool PatchScript(GlobalPatchContext gCtx, IEnumerable<PatchDescriptor> descriptors, PatchDescriptor descriptor, PatchBase patchBase, List<string> appliedPatches, List<string> failedPatches, List<string> changedFiles)
+    private void PatchScript(GlobalPatchContext gCtx, PatchDescriptor descriptor, PatchBase patch, List<string> appliedPatches, List<string> failedPatches, List<string> changedFiles)
     {
-        if (appliedPatches.Contains(patchBase.Id))
-            return false;
-        
-        var scriptFile = Path.Combine(DecompilationDirectory, $"scripts\\{descriptor.ClassName.Replace('.', '\\')}.as");
-        var patchDescriptors = descriptors as PatchDescriptor[] ?? descriptors.ToArray();
-        foreach (var dependency in patchBase.Dependencies)
+        if (appliedPatches.Contains(patch.Id))
+            return;
+        foreach (var dependencyId in patch.Dependencies)
         {
-            if (appliedPatches.Contains(dependency))
-                continue;
-
-            if (failedPatches.Contains(dependency))
+            if (failedPatches.Contains(dependencyId))
             {
-                throw new PatchFailedException($"Dependency patch '{dependency}' wasn't successfully applied.");
-            }
-            
-            var dependencyDesc =
-                patchDescriptors.FirstOrDefault(d => d.Patches.FirstOrDefault(p => p.Id == dependency) != null);
-            if (dependencyDesc is null)
-                throw new PatchFailedException($"Patch dependency '{dependency}' not found.");
-            var dependencyPatch = dependencyDesc.Patches.FirstOrDefault(p => p.Id == dependency);
-            if (dependencyPatch is null)
-                throw new PatchFailedException($"Patch dependency '{dependency}' not found.");
-            
-            try
-            {
-                PatchScript(gCtx, patchDescriptors, dependencyDesc, dependencyPatch, appliedPatches, failedPatches, changedFiles);
-                Log.SuccessLine($"Patch '{dependencyPatch.Id}' applied successfully to '{dependencyDesc.ClassName}' as dependency for '{patchBase.Id}'.");
-                appliedPatches.Add(dependency);
-            }
-            catch (Exception e)
-            {
-                failedPatches.Add(dependency);
-                throw new PatchFailedException($"Could not patch dependency '{dependency}':\n    {e.Message}");
+                throw new PatchFailedException($"The patch dependency '{dependencyId}' failed.");
             }
         }
         
+        var scriptFile = Path.Combine(DecompilationDirectory, $"scripts\\{descriptor.ClassName.Replace('.', '\\')}.as");
         var scriptContent = File.ReadAllText(scriptFile).Flatten();
+        
         try
         {
-            var result = patchBase.Apply(new PatchContext(gCtx, scriptContent, patchDescriptors, descriptor));
-            appliedPatches.Add(patchBase.Id);
+            var result = patch.Apply(new PatchContext(gCtx, scriptContent, descriptor));
+            appliedPatches.Add(patch.Id);
             File.WriteAllText(scriptFile, result.Text);
             if (!changedFiles.Contains($"{descriptor.ClassName} {scriptFile}"))
                 changedFiles.Add($"{descriptor.ClassName} {scriptFile}");
-            return true;
         }
         catch
         {
-            failedPatches.Add(patchBase.Id);
+            failedPatches.Add(patch.Id);
             throw;
         }
     }

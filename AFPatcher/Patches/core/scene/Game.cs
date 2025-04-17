@@ -6,7 +6,7 @@ namespace AFPatcher.Patches
 {
     namespace core.scene.Game
     {
-        [Patch("add_zoom_factor_variable", "Add zoom factor variable", [], 2)]
+        [Patch("add_zoom_factor_variable", "Add zoom factor variable", [], 1)]
         public class AddZoomFactorVariable(string id, string name, string[] dependencies, int priority) 
             : PatchBase(id, name, dependencies, priority)
         {
