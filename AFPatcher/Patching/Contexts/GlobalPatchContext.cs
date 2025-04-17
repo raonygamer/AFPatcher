@@ -14,6 +14,13 @@ public class GlobalPatchContext(Dictionary<string, object> tags)
     public object? GetTag(string key) => Tags.GetValueOrDefault(key);
     public bool TryGetTag(string key, out object? value) => Tags.TryGetValue(key, out value);
 
+    public bool TryGetTag<TValue>(string key, out TValue? value)
+    {
+        var ret = Tags.TryGetValue(key, out var obj);
+        value = (TValue?)obj;
+        return ret;
+    }
+
     public Dictionary<string, object> Flatten()
     {
         Dictionary<string, object> FlattenDict(object obj, string prefix = "")

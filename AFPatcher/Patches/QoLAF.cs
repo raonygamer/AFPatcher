@@ -13,7 +13,8 @@ namespace AFPatcher.Patches
                     "core.scene.Game.Variables", 
                     new Dictionary<string, string>
                     {
-                        { "ZoomFactor", "zoomFactor" }
+                        { "ZoomFactor", "zoomFactor" },
+                        { "ClientDevelopers", "clientDevelopers" }
                     } 
                 },
                 {

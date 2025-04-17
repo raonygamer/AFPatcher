@@ -39,6 +39,27 @@ class PatcherMain
     
     private async Task Start()
     {
+        Log.TraceLine();
+        var globalContext = QoLAF.GetGlobalPatchContext();
+        var patchDescriptors = QoLAF.GetPatchDescriptors();
+        var flattenedPatches = patchDescriptors
+            .SelectMany(d => d.Patches.Select(p => (Descriptor: d, Patch: p)))
+            .ToDictionary(t => t.Patch.Id);
+        var analyzer = new DependencyAnalyzer(flattenedPatches);
+        var sortedPatchIds = new List<string>();
+        Log.TraceLine($"Created instance of {flattenedPatches.Count} patches.");
+        try
+        {
+            sortedPatchIds = analyzer.TopologicalSort();
+            Log.TraceLine($"Sorted {flattenedPatches.Count} patches by dependency and priority.");
+            Log.TraceLine($"No cyclic dependencies detected.");
+        }
+        catch (CyclicDependencyException e)
+        {
+            Log.ErrorLine(e.Message);
+        }
+        Log.TraceLine();
+        
         if (!NativeFileDialog.OpenDialog(
                 [new NativeFileDialog.Filter { Extensions = ["swf"], Name = "Shockwave Files" }], null,
                 out var swfFile) ||
@@ -47,34 +68,12 @@ class PatcherMain
             Log.ErrorLine("No swf file found.");
             return;
         }
-
-        Log.TraceLine();
-        var globalContext = QoLAF.GetGlobalPatchContext();
-        var patchDescriptors = QoLAF.GetPatchDescriptors();
-        var flattenedPatches = patchDescriptors
-            .SelectMany(d => d.Patches.Select(p => (Descriptor: d, Patch: p)))
-            .ToDictionary(t => t.Patch.Id);
-        Log.TraceLine();
         
-        Log.TraceLine($"Found {flattenedPatches.Count} patches.");
         Log.TraceLine("Decompiling game...");
         if (!DecompileClasses(swfFile, patchDescriptors.Select(d => d.ClassName)))
         {
             Log.ErrorLine("Game decompilation failed.");
             return;
-        }
-        
-        var analyzer = new DependencyAnalyzer(flattenedPatches);
-        var sortedPatchIds = new List<string>();
-        try
-        {
-            sortedPatchIds = analyzer.TopologicalSort();
-            Log.TraceLine($"No cyclic dependencies detected.");
-            Log.TraceLine($"Sorted {flattenedPatches.Count} patches by dependency and priority.");
-        }
-        catch (CyclicDependencyException e)
-        {
-            Log.ErrorLine(e.Message);
         }
         
         var appliedPatches = new List<string>();
@@ -93,8 +92,7 @@ class PatcherMain
                 Log.ErrorLine($"Failed to apply patch '{id}':\n    {e.Message}");
             }
         }
-
-        Console.ReadKey();
+        
         Log.TraceLine();
         
 #if DEBUG
@@ -167,6 +165,11 @@ class PatcherMain
         if (p is null)
             return false;
         p.WaitForExit();
+        if (p.ExitCode != 0)
+        {
+            Log.ErrorLine($"Failed to decompile scripts.");
+            Log.ErrorLine(p.StandardOutput.ReadToEnd());
+        }
         return p.ExitCode == 0;
     }
 
@@ -177,6 +180,11 @@ class PatcherMain
         if (p is null)
             return false;
         p.WaitForExit();
+        if (p.ExitCode != 0)
+        {
+            Log.ErrorLine($"Failed to recompile scripts.");
+            Log.ErrorLine(p.StandardOutput.ReadToEnd());
+        }
         return p.ExitCode == 0;
     }
 

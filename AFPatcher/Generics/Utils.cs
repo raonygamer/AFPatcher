@@ -23,17 +23,7 @@ public static class Utils
         };
 
         var process = Process.Start(info);
-        Task.Run(async () =>
-        {
-            while (process?.HasExited == false)
-            {
-#if false
-                Console.WriteLine(await (process?.StandardOutput.ReadLineAsync() ?? Task.FromResult<string>("")!));
-#else
-                await (process?.StandardOutput.ReadLineAsync() ?? Task.FromResult<string>("")!);
-#endif
-            }
-        });
+
 
         return process;
     }
