@@ -16,6 +16,23 @@ public class Scope
     public delegate string ScopeModificationDelegate(ScopeInfo scopeInfo);
     public delegate void ScopeCompleteDelegate(ScopeInfo oldScopeInfo, ScopeInfo newScopeInfo);
 
+    public static ScopeInfo Modify(string text, [StringSyntax("Regex")] string scopeFindingRegex, int groupIndex,
+        ScopeModificationDelegate scopeModificationDelegate, ScopeCompleteDelegate? scopeCompleteDelegate)
+    {
+        var regex = new Regex(scopeFindingRegex);
+        if (!regex.GetGroupNumbers().Contains(groupIndex))
+        {
+            throw new Exception($"The scope finding pattern '{scopeFindingRegex}' lacks the first group capture.");
+        }
+        var match = regex.Match(text);
+        if (!match.Success)
+        {
+            throw new Exception($"Could not find scope with pattern '{scopeFindingRegex}'.");
+        }
+
+        return Modify(text, match.Groups[groupIndex].Index + match.Groups[groupIndex].Length, scopeModificationDelegate, scopeCompleteDelegate);
+    }
+    
     public static ScopeInfo Modify(string text, [StringSyntax("Regex")] string scopeFindingRegex,
         ScopeModificationDelegate scopeModificationDelegate, ScopeCompleteDelegate? scopeCompleteDelegate)
     {

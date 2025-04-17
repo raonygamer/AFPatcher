@@ -10,8 +10,8 @@ public static class Log
         Console.ForegroundColor = oldColor;
     }
     
-    public static void SuccessLine(object? value = null) => WriteLine(value, ConsoleColor.Green);
+    public static void SuccessLine(object? value = null) => WriteLine(value, ConsoleColor.DarkCyan);
     public static void TraceLine(object? value = null) => WriteLine(value);
     public static void WarnLine(object? value = null) => WriteLine(value, ConsoleColor.DarkYellow);
-    public static void ErrorLine(object? value = null) => WriteLine(value, ConsoleColor.Red);
+    public static void ErrorLine(object? value = null) => WriteLine(value, ConsoleColor.DarkRed);
 }

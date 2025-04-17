@@ -64,23 +64,22 @@ class AFPatcher
         }
         
         var appliedPatches = new List<string>();
+        var failedPatches = new List<string>();
         var changedFiles = new List<string>();
         var allPatches = (from patchDesc in patchDescriptors from patch in patchDesc.Patches select (patch, patchDesc, patch.Priority)).OrderByDescending(patch => patch.Priority);
         foreach (var patch in allPatches)
         {
             try
             {
-                if (!PatchScript(globalContext, patchDescriptors, patch.patchDesc, patch.patch, appliedPatches, changedFiles))
+                if (!PatchScript(globalContext, patchDescriptors, patch.patchDesc, patch.patch, appliedPatches, failedPatches, changedFiles))
                     continue;
                 Log.SuccessLine($"Patch '{patch.patch.Id}' applied successfully to '{patch.patchDesc.ClassName}'.");
             }
-            catch (PatchFailedException e)
+            catch (Exception e)
             {
                 Log.ErrorLine($"Failed to apply patch '{patch.patch.Id}' to '{patch.patchDesc.ClassName}':\n    {e.Message}");
             }
         }
-        
-        
         
         Log.TraceLine();
         
@@ -118,7 +117,7 @@ class AFPatcher
         File.Copy(newFile, saveSwfFile, true);
     }
 
-    private bool PatchScript(GlobalPatchContext gCtx, IEnumerable<PatchDescriptor> descriptors, PatchDescriptor descriptor, PatchBase patchBase, List<string> appliedPatches, List<string> changedFiles)
+    private bool PatchScript(GlobalPatchContext gCtx, IEnumerable<PatchDescriptor> descriptors, PatchDescriptor descriptor, PatchBase patchBase, List<string> appliedPatches, List<string> failedPatches, List<string> changedFiles)
     {
         if (appliedPatches.Contains(patchBase.Id))
             return false;
@@ -129,6 +128,11 @@ class AFPatcher
         {
             if (appliedPatches.Contains(dependency))
                 continue;
+
+            if (failedPatches.Contains(dependency))
+            {
+                throw new PatchFailedException($"Dependency patch '{dependency}' wasn't successfully applied.");
+            }
             
             var dependencyDesc =
                 patchDescriptors.FirstOrDefault(d => d.Patches.FirstOrDefault(p => p.Id == dependency) != null);
@@ -140,22 +144,32 @@ class AFPatcher
             
             try
             {
-                PatchScript(gCtx, patchDescriptors, dependencyDesc, dependencyPatch, appliedPatches, changedFiles);
+                PatchScript(gCtx, patchDescriptors, dependencyDesc, dependencyPatch, appliedPatches, failedPatches, changedFiles);
                 Log.SuccessLine($"Patch '{dependencyPatch.Id}' applied successfully to '{dependencyDesc.ClassName}' as dependency for '{patchBase.Id}'.");
                 appliedPatches.Add(dependency);
             }
-            catch (PatchFailedException e)
+            catch (Exception e)
             {
+                failedPatches.Add(dependency);
                 throw new PatchFailedException($"Could not patch dependency '{dependency}':\n    {e.Message}");
             }
         }
+        
         var scriptContent = File.ReadAllText(scriptFile).Flatten();
-        var result = patchBase.Apply(new PatchContext(gCtx, scriptContent, patchDescriptors, descriptor));
-        appliedPatches.Add(patchBase.Id);
-        File.WriteAllText(scriptFile, result.Text);
-        if (!changedFiles.Contains($"{descriptor.ClassName} {scriptFile}"))
-            changedFiles.Add($"{descriptor.ClassName} {scriptFile}");
-        return true;
+        try
+        {
+            var result = patchBase.Apply(new PatchContext(gCtx, scriptContent, patchDescriptors, descriptor));
+            appliedPatches.Add(patchBase.Id);
+            File.WriteAllText(scriptFile, result.Text);
+            if (!changedFiles.Contains($"{descriptor.ClassName} {scriptFile}"))
+                changedFiles.Add($"{descriptor.ClassName} {scriptFile}");
+            return true;
+        }
+        catch
+        {
+            failedPatches.Add(patchBase.Id);
+            throw;
+        }
     }
     
     private bool DecompileClasses(string swfSource, IEnumerable<string> classes)
