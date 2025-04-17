@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Text.RegularExpressions;
 using AFPatcher.Utility;
+using Patching.Utility;
 
 namespace AFPatcher.Patching;
 

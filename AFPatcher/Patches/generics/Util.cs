@@ -1,5 +1,6 @@
 ﻿using AFPatcher.Patching;
 using AFPatcher.Utility;
+using Patching.Utility;
 
 // ReSharper disable CheckNamespace
 namespace AFPatcher.Patches

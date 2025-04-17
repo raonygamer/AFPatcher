@@ -7,13 +7,11 @@ using AFPatcher.Utility;
 using Newtonsoft.Json;
 using SharpFileDialog;
 
-namespace AFPatcher;
-
-class AFPatcher
+class PatcherMain
 {
     #region Singleton
-    private static AFPatcher? _instance;
-    public static AFPatcher Instance => _instance ??= new AFPatcher();
+    private static PatcherMain? _instance;
+    public static PatcherMain Instance => _instance ??= new PatcherMain();
     
     static void Main(string[] args)
     {
@@ -28,7 +26,7 @@ class AFPatcher
     public readonly string TemporaryDirectory;
     public readonly string DecompilationDirectory;
     
-    public AFPatcher()
+    public PatcherMain()
     {
         AppDomain.CurrentDomain.ProcessExit += (sender, args) => OnExit();
         TemporaryDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString().Replace("-", ""));
