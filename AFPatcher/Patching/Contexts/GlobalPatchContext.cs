@@ -5,9 +5,16 @@ using Patching.Utility;
 
 namespace AFPatcher.Patching;
 
-public class GlobalPatchContext(Dictionary<string, object> tags)
+public class GlobalPatchContext(Dictionary<string, object> tags, PatchDescriptor[] descriptors)
 {
     public Dictionary<string, object> Tags { get; } = tags;
+    public List<string> AppliedPatches { get; } = [];
+    public Dictionary<string, string> FailedPatches { get; } = [];
+    public Dictionary<string, string> ChangedFiles { get; } = [];
+    public IEnumerable<PatchDescriptor> PatchDescriptors { get; } = descriptors;
+    public IDictionary<string, (PatchDescriptor Descriptor, PatchBase Patch)> FlattenedPatches { get; } = descriptors
+        .SelectMany(d => d.Patches.Select(p => (Descriptor: d, Patch: p)))
+        .ToDictionary(t => t.Patch.Id);
     
     public void AddTag(string key, object value) => Tags.Add(key, value);
     public bool RemoveTag(string key) => Tags.Remove(key);
@@ -69,5 +76,66 @@ public class GlobalPatchContext(Dictionary<string, object> tags)
             successReplacedTags++;
         }
         return successReplacedTags >= matches.Count;
+    }
+
+    public void StartPatching(IEnumerable<string> sortedIdentifiers, string exportedScriptsDirectory)
+    {
+        Log.TraceLine($"Patching process started...");
+        foreach (var id in sortedIdentifiers)
+        {
+            var (desc, patch) = FlattenedPatches[id];
+            try
+            {
+                PatchScript(desc, patch, exportedScriptsDirectory);
+                Log.SuccessLine($"Patch '{patch.Id}' applied successfully to '{desc.ClassName}'.");
+            }
+            catch (Exception e)
+            {
+                Log.ErrorLine(e.Message);
+            }
+        }
+        Log.TraceLine($"Patching finished...");
+    }
+    
+    private void PatchScript(PatchDescriptor descriptor, PatchBase patch, string exportedScriptsDirectory)
+    {
+        // Check if patch was already applied
+        if (AppliedPatches.Contains(patch.Id))
+            return;
+        
+        // Check if any of the dependencies failed and throw in case
+        var failedDependencies = FailedPatches.Keys.Intersect(patch.Dependencies).ToArray();
+        if (failedDependencies.Length != 0)
+        {
+            var failedText = $"Failed to apply patch '{patch.Id}':";
+            foreach (var failed in failedDependencies)
+            {
+                failedText += $"\n  Dependency '{failed}' wasn't applied:";
+                failedText += $"\n    {FailedPatches[failed]}";
+            }
+            FailedPatches.Add(patch.Id, failedText);
+            throw new PatchFailedException(failedText);
+        }
+        
+        // Get script file contents
+        var scriptFile = Path.Combine(exportedScriptsDirectory, $"scripts\\{descriptor.ClassName.Replace('.', '\\')}.as");
+        var scriptContent = File.ReadAllText(scriptFile).Flatten();
+        
+        try
+        {
+            // Try to apply patch
+            var result = patch.Apply(new PatchContext(this, scriptContent, descriptor));
+            AppliedPatches.Add(patch.Id);
+            File.WriteAllText(scriptFile, result.Text);
+            
+            // In case of success add the patch to the changed files
+            ChangedFiles[descriptor.ClassName] = scriptFile;
+        }
+        catch (Exception e)
+        {
+            // In case of fail, register it and throw
+            FailedPatches.Add(patch.Id, e.Message);
+            throw;
+        }
     }
 }

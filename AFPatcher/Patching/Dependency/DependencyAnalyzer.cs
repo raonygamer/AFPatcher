@@ -5,7 +5,7 @@ public class DependencyAnalyzer
     public Dictionary<string, List<string>> Graph { get; private set; }= [];
     public Dictionary<string, int> Priorities { get; private set; } = [];
     
-    public DependencyAnalyzer(Dictionary<string, (PatchDescriptor Descriptor, PatchBase Patch)> patches)
+    public DependencyAnalyzer(IDictionary<string, (PatchDescriptor Descriptor, PatchBase Patch)> patches)
     {
         foreach (var (id, (desc, patch)) in patches)
         {

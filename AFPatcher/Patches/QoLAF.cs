@@ -7,7 +7,7 @@ namespace AFPatcher.Patches
     {
         public static GlobalPatchContext GetGlobalPatchContext()
         {
-            return new GlobalPatchContext(new Dictionary<string, object>
+            return new GlobalPatchContext(new()
             {
                 { 
                     "core.scene.Game.Variables", 
@@ -53,10 +53,10 @@ namespace AFPatcher.Patches
                         { "mufenz", "" }
                     }
                 }
-            });
+            }, GetPatchDescriptors().ToArray());
         }
     
-        public static PatchDescriptor[] GetPatchDescriptors()
+        public static IEnumerable<PatchDescriptor> GetPatchDescriptors()
         {
             var assembly = Assembly.GetAssembly(typeof(QoLAF));
             if (assembly is null)
@@ -64,11 +64,9 @@ namespace AFPatcher.Patches
             var classNamesFromPatches = assembly
                 .GetTypes()
                 .Select(t => t.Namespace)
-                .Where(t => t is not null && t.StartsWith(typeof(QoLAF).Namespace!))
+                .Where(t => t is not null && t.StartsWith(typeof(QoLAF).Namespace! + "."))
                 .Distinct()
-                .Select(n => new PatchDescriptor(n!.Replace(typeof(QoLAF).Namespace! + ".", string.Empty), []))
-                .ToArray();
-        
+                .Select(n => new PatchDescriptor(n!.Replace(typeof(QoLAF).Namespace! + ".", string.Empty), []));
             return classNamesFromPatches;
         }
     }

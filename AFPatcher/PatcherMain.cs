@@ -1,11 +1,8 @@
-﻿using System.Diagnostics;
-using System.Text.RegularExpressions;
-using System.Xml.Linq;
-using AFPatcher.Patches;
+﻿using AFPatcher.Patches;
 using AFPatcher.Patching;
 using AFPatcher.Utility;
-using Newtonsoft.Json;
-using SharpFileDialog;
+
+namespace AFPatcher;
 
 class PatcherMain
 {
@@ -15,7 +12,7 @@ class PatcherMain
     
     static void Main(string[] args)
     {
-        Instance.Start().GetAwaiter().GetResult();
+        Instance.Start();
 #if DEBUG
         Console.ReadKey();        
 #endif
@@ -23,143 +20,88 @@ class PatcherMain
     }
     #endregion
 
-    public readonly string TemporaryDirectory;
-    public readonly string DecompilationDirectory;
+    private readonly string TemporaryDirectory;
+    private readonly string DecompilationDirectory;
     
-    public PatcherMain()
+    private PatcherMain()
     {
-        AppDomain.CurrentDomain.ProcessExit += (sender, args) => OnExit();
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => OnExit();
         TemporaryDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString().Replace("-", ""));
         DecompilationDirectory = Path.Combine(TemporaryDirectory, "decompiled");
-        
         Directory.CreateDirectory(DecompilationDirectory);
         Log.TraceLine("Creating temporary directory...");
         Log.TraceLine($"Created temporary directory: {TemporaryDirectory}");
     }
     
-    private async Task Start()
+    private void Start()
     {
-        Log.TraceLine();
-        var globalContext = QoLAF.GetGlobalPatchContext();
-        var patchDescriptors = QoLAF.GetPatchDescriptors();
-        var flattenedPatches = patchDescriptors
-            .SelectMany(d => d.Patches.Select(p => (Descriptor: d, Patch: p)))
-            .ToDictionary(t => t.Patch.Id);
-        var analyzer = new DependencyAnalyzer(flattenedPatches);
-        var sortedPatchIds = new List<string>();
-        Log.TraceLine($"Created instance of {flattenedPatches.Count} patches.");
+        // Create context and all the descriptors and patches
+        var context = QoLAF.GetGlobalPatchContext();
+        Log.TraceLine($"Created instance of {context.FlattenedPatches.Count} patches.");
+        
+        // Create the dependency analyzer
+        var patchIdentifiers = new List<string>();
+        var analyzer = new DependencyAnalyzer(context.FlattenedPatches);
         try
         {
-            sortedPatchIds = analyzer.TopologicalSort();
-            Log.TraceLine($"Sorted {flattenedPatches.Count} patches by dependency and priority.");
+            // Check for cyclic dependencies and sort topologically by dependency order and priority
+            patchIdentifiers = analyzer.TopologicalSort();
+            Log.TraceLine($"Sorted {context.FlattenedPatches.Count} patches by dependency and priority.");
             Log.TraceLine($"No cyclic dependencies detected.");
         }
         catch (CyclicDependencyException e)
         {
+            // Print cyclic dependency traces
             Log.ErrorLine(e.Message);
         }
+        
+        // Print all the scripts to export
+        Log.TraceLine($"Scripts to export:\n    {string.Join("\n    ", context.PatchDescriptors.Select(d => d.ClassName))}");
         Log.TraceLine();
-        
-        if (!NativeFileDialog.OpenDialog(
-                [new NativeFileDialog.Filter { Extensions = ["swf"], Name = "Shockwave Files" }], null,
-                out var swfFile) ||
-            !File.Exists(swfFile))
-        {
-            Log.ErrorLine("No swf file found.");
-            return;
-        }
-        
-        Log.TraceLine("Decompiling game...");
-        if (!DecompileClasses(swfFile, patchDescriptors.Select(d => d.ClassName)))
-        {
-            Log.ErrorLine("Game decompilation failed.");
-            return;
-        }
-        
-        var appliedPatches = new List<string>();
-        var failedPatches = new List<string>();
-        var changedFiles = new List<string>();
-        foreach (var id in sortedPatchIds)
-        {
-            try
-            {
-                var (desc, patch) = flattenedPatches[id];
-                PatchScript(globalContext, desc, patch, appliedPatches, failedPatches, changedFiles);
-                Log.SuccessLine($"Patch '{id}' applied successfully on '{desc.ClassName}'.");
-            }
-            catch (Exception e)
-            {
-                Log.ErrorLine($"Failed to apply patch '{id}':\n    {e.Message}");
-            }
-        }
-        
-        Log.TraceLine();
-        
-#if DEBUG
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = "cmd",
-            Arguments = $"/c start {DecompilationDirectory}",
-            UseShellExecute = true
-        });
-#endif
 
-        if (changedFiles.Count == 0)
+        // Open .swf file to export scripts
+        var fileToPatch = Utils.OpenFile([(["swf"], "Shockwave Files")], null);
+        if (fileToPatch is null || !File.Exists(fileToPatch)) 
         {
-            Log.ErrorLine("No changed files found.");
+            Log.ErrorLine("File to patch could not be found.");
             return;
         }
         
-        Log.TraceLine("Recompiling game...");
-        if (!RecompileClasses(swfFile, changedFiles))
+        // Export specified classes from the .swf
+        if (!ExportClasses(fileToPatch, context.PatchDescriptors.Select(d => d.ClassName)))
         {
-            Log.ErrorLine("Game recompilation failed.");
+            Log.ErrorLine("Script exporting failed.");
+            return;
+        }
+        
+        // Start patching the exported files
+        context.StartPatching(patchIdentifiers, DecompilationDirectory);
+        if (context.ChangedFiles.Count == 0)
+        {
+            Log.ErrorLine("No changed scripts found.");
+            return;
+        }
+        
+        // Replace modified files
+        Log.TraceLine("Replacing scripts...");
+        if (!ReplaceClasses(fileToPatch, context.ChangedFiles.Values))
+        {
+            Log.ErrorLine("Script replacement failed.");
             return;
         }
 
-        var newFile = Path.Combine(TemporaryDirectory, "recompiled", Path.GetFileName(swfFile));
-        if (!NativeFileDialog.SaveDialog(
-                [new NativeFileDialog.Filter { Extensions = ["swf"], Name = "Shockwave Files" }], null,
-                out var saveSwfFile))
+        // Copy new .swf files
+        var newFile = Path.Combine(TemporaryDirectory, "recompiled", Path.GetFileName(fileToPatch));
+        var copyFile = Utils.SaveFile([(["swf"], "Shockwave Files")], null);
+        if (copyFile is null || !File.Exists(copyFile))
         {
-            Log.ErrorLine("Invalid save swf file.");
             return;
         }
         
-        File.Copy(newFile, saveSwfFile, true);
-    }
-
-    private void PatchScript(GlobalPatchContext gCtx, PatchDescriptor descriptor, PatchBase patch, List<string> appliedPatches, List<string> failedPatches, List<string> changedFiles)
-    {
-        if (appliedPatches.Contains(patch.Id))
-            return;
-        foreach (var dependencyId in patch.Dependencies)
-        {
-            if (failedPatches.Contains(dependencyId))
-            {
-                throw new PatchFailedException($"The patch dependency '{dependencyId}' failed.");
-            }
-        }
-        
-        var scriptFile = Path.Combine(DecompilationDirectory, $"scripts\\{descriptor.ClassName.Replace('.', '\\')}.as");
-        var scriptContent = File.ReadAllText(scriptFile).Flatten();
-        
-        try
-        {
-            var result = patch.Apply(new PatchContext(gCtx, scriptContent, descriptor));
-            appliedPatches.Add(patch.Id);
-            File.WriteAllText(scriptFile, result.Text);
-            if (!changedFiles.Contains($"{descriptor.ClassName} {scriptFile}"))
-                changedFiles.Add($"{descriptor.ClassName} {scriptFile}");
-        }
-        catch
-        {
-            failedPatches.Add(patch.Id);
-            throw;
-        }
+        File.Copy(newFile, copyFile, true);
     }
     
-    private bool DecompileClasses(string swfSource, IEnumerable<string> classes)
+    private bool ExportClasses(string swfSource, IEnumerable<string> classes)
     { 
         var p = Utils.StartFlashDecompiler($"-selectclass {string.Join(",", classes)} -export script", DecompilationDirectory, swfSource);
         if (p is null)
@@ -167,13 +109,13 @@ class PatcherMain
         p.WaitForExit();
         if (p.ExitCode != 0)
         {
-            Log.ErrorLine($"Failed to decompile scripts.");
+            Log.ErrorLine($"Failed to export scripts.");
             Log.ErrorLine(p.StandardOutput.ReadToEnd());
         }
         return p.ExitCode == 0;
     }
 
-    private bool RecompileClasses(string swfSource, IEnumerable<string> changedFiles)
+    private bool ReplaceClasses(string swfSource, IEnumerable<string> changedFiles)
     {
         Directory.CreateDirectory(Path.Combine(TemporaryDirectory, "recompiled"));
         var p = Utils.StartFlashDecompiler(string.Join(" ", ["-replace", swfSource, Path.Combine(TemporaryDirectory, "recompiled", Path.GetFileName(swfSource)), ..changedFiles]));
@@ -182,7 +124,7 @@ class PatcherMain
         p.WaitForExit();
         if (p.ExitCode != 0)
         {
-            Log.ErrorLine($"Failed to recompile scripts.");
+            Log.ErrorLine($"Failed to replace scripts.");
             Log.ErrorLine(p.StandardOutput.ReadToEnd());
         }
         return p.ExitCode == 0;

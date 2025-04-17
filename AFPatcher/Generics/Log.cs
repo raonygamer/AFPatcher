@@ -11,7 +11,7 @@ public static class Log
     }
     
     public static void SuccessLine(object? value = null) => WriteLine(value, ConsoleColor.DarkCyan);
-    public static void TraceLine(object? value = null) => WriteLine(value);
+    public static void TraceLine(object? value = null) => WriteLine(value, ConsoleColor.Yellow);
     public static void WarnLine(object? value = null) => WriteLine(value, ConsoleColor.DarkYellow);
     public static void ErrorLine(object? value = null) => WriteLine(value, ConsoleColor.DarkRed);
 }
