@@ -9,7 +9,7 @@ public class GlobalPatchContext(Dictionary<string, object> tags, PatchDescriptor
 {
     public Dictionary<string, object> Tags { get; } = tags;
     public List<string> AppliedPatches { get; } = [];
-    public Dictionary<string, string> FailedPatches { get; } = [];
+    public Dictionary<string, List<(string message, uint tabs)>> FailedPatches { get; } = [];
     public Dictionary<string, string> ChangedFiles { get; } = [];
     public IEnumerable<PatchDescriptor> PatchDescriptors { get; } = descriptors;
     public IDictionary<string, (PatchDescriptor Descriptor, PatchBase Patch)> FlattenedPatches { get; } = descriptors
@@ -87,13 +87,56 @@ public class GlobalPatchContext(Dictionary<string, object> tags, PatchDescriptor
             try
             {
                 PatchScript(desc, patch, exportedScriptsDirectory);
-                Log.SuccessLine($"Patch '{patch.Id}' applied successfully to '{desc.ClassName}'.");
             }
             catch (Exception e)
             {
-                Log.ErrorLine(e.Message);
+                // Ignored
             }
         }
+
+        Dictionary<string, List<(PatchDescriptor Descriptor, PatchBase Patch, List<(string message, uint tabs)>?)>> orderedByClassName = []; 
+        foreach (var appliedPatch in AppliedPatches)
+        {
+            var tuple = FlattenedPatches[appliedPatch];
+            if (!orderedByClassName.ContainsKey(FlattenedPatches[appliedPatch].Descriptor.ClassName))
+                orderedByClassName[FlattenedPatches[appliedPatch].Descriptor.ClassName] = [];
+            orderedByClassName[FlattenedPatches[appliedPatch].Descriptor.ClassName].Add((tuple.Descriptor, tuple.Patch, null));
+        }
+
+        foreach (var failedPatch in FailedPatches)
+        {
+            var tuple = FlattenedPatches[failedPatch.Key];
+            if (!orderedByClassName.ContainsKey(FlattenedPatches[failedPatch.Key].Descriptor.ClassName))
+                orderedByClassName[FlattenedPatches[failedPatch.Key].Descriptor.ClassName] = [];
+            orderedByClassName[FlattenedPatches[failedPatch.Key].Descriptor.ClassName].Add((tuple.Descriptor, tuple.Patch, failedPatch.Value));
+        }
+
+        foreach (var (className, patchList) in orderedByClassName)
+        {
+            Log.WriteLine(className, ConsoleColor.Cyan);
+            foreach (var (desc, patch, errorMessage) in patchList)
+            {
+                if (errorMessage is null)
+                {
+                    Log.Success("  Applied patch ");
+                    Log.Write($"'{patch.Name}'", ConsoleColor.Blue);
+                    Log.Success(".");
+                    Log.Write("\n");
+                }
+                else
+                {
+                    Log.Error("  Failed to apply patch ");
+                    Log.Write($"'{patch.Name}'", ConsoleColor.DarkRed);
+                    Log.ErrorLine(":");
+                    foreach (var messageComponents in errorMessage)
+                    {
+                        Log.ErrorLine($"{new string(' ', (int)messageComponents.tabs + 4)}{messageComponents.message}");
+                    }
+                    Log.Write("\n");
+                }
+            }
+        }
+        
         Log.TraceLine($"Patching finished...");
     }
     
@@ -107,14 +150,19 @@ public class GlobalPatchContext(Dictionary<string, object> tags, PatchDescriptor
         var failedDependencies = FailedPatches.Keys.Intersect(patch.Dependencies).ToArray();
         if (failedDependencies.Length != 0)
         {
-            var failedText = $"Failed to apply patch '{patch.Id}':";
+            var textLines = new List<(string message, uint tabs)>();
+            var baseTab = 0u;
+            var adderTab = 2u;
             foreach (var failed in failedDependencies)
             {
-                failedText += $"\n  Dependency '{failed}' wasn't applied:";
-                failedText += $"\n    {FailedPatches[failed]}";
+                textLines.Add(($"Dependency '{FlattenedPatches[failed].Patch.Name}' wasn't applied:", baseTab));
+                foreach (var oldTextLines in FailedPatches[failed])
+                {
+                    textLines.Add((oldTextLines.message, oldTextLines.tabs + adderTab));
+                }
             }
-            FailedPatches.Add(patch.Id, failedText);
-            throw new PatchFailedException(failedText);
+            FailedPatches.Add(patch.Id, textLines);
+            return;
         }
         
         // Get script file contents
@@ -134,7 +182,9 @@ public class GlobalPatchContext(Dictionary<string, object> tags, PatchDescriptor
         catch (Exception e)
         {
             // In case of fail, register it and throw
-            FailedPatches.Add(patch.Id, e.Message);
+            FailedPatches.Add(patch.Id, [
+                (e.Message, 0)
+            ]);
             throw;
         }
     }

@@ -15,7 +15,7 @@ public abstract class PatchBase
         this.Name = name;
         this.Dependencies = dependencies;
         this.Priority = priority;
-        Log.SuccessLine($"Created instance of patch '{id}'.");
+        Log.SuccessLine($"Created instance of patch '{name}'.");
     }
     
     public abstract PatchResult Apply(PatchContext patchContext);

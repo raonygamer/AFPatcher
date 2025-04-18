@@ -56,7 +56,7 @@ class PatcherMain
         }
         
         // Print all the scripts to export
-        Log.TraceLine($"Scripts to export:\n    {string.Join("\n    ", context.PatchDescriptors.Select(d => d.ClassName))}");
+        Log.TraceLine($"Scripts to export:\n  {string.Join("\n  ", context.PatchDescriptors.Select(d => d.ClassName))}");
         Log.TraceLine();
 
         // Open .swf file to export scripts
@@ -84,7 +84,7 @@ class PatcherMain
         
         // Replace modified files
         Log.TraceLine("Replacing scripts...");
-        if (!ReplaceClasses(fileToPatch, context.ChangedFiles.Values))
+        if (!ReplaceClasses(fileToPatch, context.ChangedFiles))
         {
             Log.ErrorLine("Script replacement failed.");
             return;
@@ -115,10 +115,10 @@ class PatcherMain
         return p.ExitCode == 0;
     }
 
-    private bool ReplaceClasses(string swfSource, IEnumerable<string> changedFiles)
+    private bool ReplaceClasses(string swfSource, IDictionary<string, string> changedFiles)
     {
         Directory.CreateDirectory(Path.Combine(TemporaryDirectory, "recompiled"));
-        var p = Utils.StartFlashDecompiler(string.Join(" ", ["-replace", swfSource, Path.Combine(TemporaryDirectory, "recompiled", Path.GetFileName(swfSource)), ..changedFiles]));
+        var p = Utils.StartFlashDecompiler(string.Join(" ", ["-replace", swfSource, Path.Combine(TemporaryDirectory, "recompiled", Path.GetFileName(swfSource)), string.Join(" ", changedFiles.Select(kvp => @$"""{kvp.Key}"" ""{kvp.Value}"""))]));
         if (p is null)
             return false;
         p.WaitForExit();

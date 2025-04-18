@@ -52,7 +52,8 @@ namespace AFPatcher.Patches
                         { "TheLostOne", "simple1622136353425" },
                         { "mufenz", "" }
                     }
-                }
+                },
+                { "UpgradeAnimationTimeReduction", 1.0 - 85.0 / 100.0 } // 85%
             }, GetPatchDescriptors().ToArray());
         }
     
