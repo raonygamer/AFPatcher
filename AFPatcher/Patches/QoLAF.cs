@@ -14,14 +14,16 @@ namespace AFPatcher.Patches
                     new Dictionary<string, string>
                     {
                         { "ZoomFactor", "zoomFactor" },
-                        { "ClientDevelopers", "clientDevelopers" }
+                        { "ClientDevelopers", "clientDevelopers" },
+                        { "ServerClientTime", "serverClientTime" }
                     } 
                 },
                 {
                     "core.scene.Game.Functions",
                     new Dictionary<string, string>
                     {
-                        { "OpenPortableRecycle", "openPortableRecycle" }
+                        { "OpenPortableRecycle", "openPortableRecycle" },
+                        { "EnterFrame", "enterFrame" }
                     }
                 },
                 { 
@@ -37,6 +39,46 @@ namespace AFPatcher.Patches
                     {
                         { "HasValue", "hasValue" }
                     } 
+                },
+                {
+                    "core.artifact.ArtifactStat.Variables",
+                    new Dictionary<string, string>
+                    {
+                        { "FitnessOfLine", "fitnessOfLine" }
+                    }
+                },
+                {
+                    "core.artifact.ArtifactStat.Functions",
+                    new Dictionary<string, string>
+                    {
+                        { "CalculateFitnessOfLine", "calculateFitnessOfLine" }
+                    }
+                },
+                {
+                    "core.artifact.Artifact.Variables",
+                    new Dictionary<string, string>
+                    {
+                        { "FitnessOfArtifact", "fitnessOfArtifact" }
+                    }
+                },
+                {
+                    "core.artifact.Artifact.Functions",
+                    new Dictionary<string, string>
+                    {
+                        { "CalculateFitnessOfArtifact", "calculateFitnessOfArtifact" }
+                    }
+                },
+                {
+                    "core.artifact.ArtifactOverview.Variables",
+                    new Dictionary<string, string>
+                    {
+                        { "PurifiedArtifacts", "purifiedArtifacts" },
+                        { "PurifyButton", "purifyButton" },
+                        { "SaveStatsButton", "saveStatsButton" },
+                        { "FitnessInput", "fitnessInput" },
+                        { "LineInput", "lineInput" },
+                        { "StrengthInput", "strengthInput" }
+                    }
                 },
                 { "EchoFormat", "<font color='{0}'>QoLAF (Server {1} / {2})</font>" },
                 { "EchoColor", "#ff6200" },

@@ -8,7 +8,7 @@ namespace AFPatcher.Patching;
 public class GlobalPatchContext(Dictionary<string, object> tags, PatchDescriptor[] descriptors)
 {
     public Dictionary<string, object> Tags { get; } = tags;
-    public List<string> AppliedPatches { get; } = [];
+    public Dictionary<string, int> AppliedPatches { get; } = [];
     public Dictionary<string, List<(string message, uint tabs)>> FailedPatches { get; } = [];
     public Dictionary<string, string> ChangedFiles { get; } = [];
     public IEnumerable<PatchDescriptor> PatchDescriptors { get; } = descriptors;
@@ -94,13 +94,13 @@ public class GlobalPatchContext(Dictionary<string, object> tags, PatchDescriptor
             }
         }
 
-        Dictionary<string, List<(PatchDescriptor Descriptor, PatchBase Patch, List<(string message, uint tabs)>?)>> orderedByClassName = []; 
-        foreach (var appliedPatch in AppliedPatches)
+        Dictionary<string, List<(PatchDescriptor Descriptor, PatchBase Patch, List<(string message, uint tabs)>?, int time)>> orderedByClassName = []; 
+        foreach (var (id, time) in AppliedPatches)
         {
-            var tuple = FlattenedPatches[appliedPatch];
-            if (!orderedByClassName.ContainsKey(FlattenedPatches[appliedPatch].Descriptor.ClassName))
-                orderedByClassName[FlattenedPatches[appliedPatch].Descriptor.ClassName] = [];
-            orderedByClassName[FlattenedPatches[appliedPatch].Descriptor.ClassName].Add((tuple.Descriptor, tuple.Patch, null));
+            var tuple = FlattenedPatches[id];
+            if (!orderedByClassName.ContainsKey(FlattenedPatches[id].Descriptor.ClassName))
+                orderedByClassName[FlattenedPatches[id].Descriptor.ClassName] = [];
+            orderedByClassName[FlattenedPatches[id].Descriptor.ClassName].Add((tuple.Descriptor, tuple.Patch, null, time));
         }
 
         foreach (var failedPatch in FailedPatches)
@@ -108,13 +108,17 @@ public class GlobalPatchContext(Dictionary<string, object> tags, PatchDescriptor
             var tuple = FlattenedPatches[failedPatch.Key];
             if (!orderedByClassName.ContainsKey(FlattenedPatches[failedPatch.Key].Descriptor.ClassName))
                 orderedByClassName[FlattenedPatches[failedPatch.Key].Descriptor.ClassName] = [];
-            orderedByClassName[FlattenedPatches[failedPatch.Key].Descriptor.ClassName].Add((tuple.Descriptor, tuple.Patch, failedPatch.Value));
+            orderedByClassName[FlattenedPatches[failedPatch.Key].Descriptor.ClassName].Add((tuple.Descriptor, tuple.Patch, failedPatch.Value, 0));
         }
+
+        orderedByClassName = orderedByClassName
+            .OrderBy(kvp => kvp.Value.Max(item => item.time))
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
         foreach (var (className, patchList) in orderedByClassName)
         {
             Log.WriteLine(className, ConsoleColor.Cyan);
-            foreach (var (desc, patch, errorMessage) in patchList)
+            foreach (var (desc, patch, errorMessage, time) in patchList)
             {
                 if (errorMessage is null)
                 {
@@ -143,7 +147,7 @@ public class GlobalPatchContext(Dictionary<string, object> tags, PatchDescriptor
     private void PatchScript(PatchDescriptor descriptor, PatchBase patch, string exportedScriptsDirectory)
     {
         // Check if patch was already applied
-        if (AppliedPatches.Contains(patch.Id))
+        if (AppliedPatches.ContainsKey(patch.Id))
             return;
         
         // Check if any of the dependencies failed and throw in case
@@ -173,7 +177,7 @@ public class GlobalPatchContext(Dictionary<string, object> tags, PatchDescriptor
         {
             // Try to apply patch
             var result = patch.Apply(new PatchContext(this, scriptContent, descriptor));
-            AppliedPatches.Add(patch.Id);
+            AppliedPatches.Add(patch.Id, DateTime.Now.Millisecond);
             File.WriteAllText(scriptFile, result.Text);
             
             // In case of success add the patch to the changed files

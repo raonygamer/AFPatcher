@@ -16,11 +16,120 @@ namespace AFPatcher.Patches
                 var text = ctx.Text;
                 var patchText = 
                     $"public var {{[ {ctx.PatchDescriptor.ClassName}.Variables.ZoomFactor ]}}:Number = 1.0;"
-                        .ExpandTags(ctx.GlobalPatchContext).Flatten();
+                    .ExpandTags(ctx.GlobalPatchContext)
+                    .Flatten();
                 Scope.Modify(
                     text,
                     @"public\s+class\s+Game\s+extends\s+SceneBase()",
                     (info) => info.ScopeText.InsertTextAt(patchText, 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
+                );
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("add_server_client_time_variable", "Add server client time variable", [])]
+        public class AddServerClientTimeVariable(string id, string name, string[] dependencies, int priority) 
+            : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = 
+                    $"public var {{[ {ctx.PatchDescriptor.ClassName}.Variables.ServerClientTime ]}}:Number = 0.0;"
+                    .ExpandTags(ctx.GlobalPatchContext)
+                    .Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+Game\s+extends\s+SceneBase()",
+                    (info) => info.ScopeText.InsertTextAt(patchText, 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
+                );
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("update_server_client_time_variable_in_tickUpdate", "Update server client time variable in tickUpdate", ["add_server_client_time_variable"])]
+        public class UpdateServerClientTimeVariableInTickUpdate(string id, string name, string[] dependencies, int priority) 
+            : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = 
+                    $"{{[ {ctx.PatchDescriptor.ClassName}.Variables.ServerClientTime ]}} = time;"
+                    .ExpandTags(ctx.GlobalPatchContext)
+                    .Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+Game\s+extends\s+SceneBase{.*?(?=(?:public|private|protected|internal)\s+function\s+tickUpdate\s*\(.*?\)\s*:\s*\w+)()",
+                    (info) => info.ScopeText.InsertTextAt(patchText, info.Length - 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
+                );
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("add_enter_frame_function", "Add enter frame function", ["add_server_client_time_variable", "add_object_has_value_function"])]
+        public class AddEnterFrameFunction(string id, string name, string[] dependencies, int priority) 
+            : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = @$"
+                    public function {{[ {ctx.PatchDescriptor.ClassName}.Functions.EnterFrame ]}}(e:starling.events.EnterFrameEvent): void {{
+                        {{[ {ctx.PatchDescriptor.ClassName}.Variables.ServerClientTime ]}} += e.passedTime;
+                        var colorRainbow:Number = {{[ {ctx.PatchDescriptor.ClassName}.Variables.ServerClientTime ]}} / 1000 % (Math.PI * 2);
+                        if (playerManager != null) {{
+                            var players:Vector.<core.player.Player> = playerManager.players;
+                            for each (var player:core.player.Player in players) {{
+                                if (!generics.Util.{{[ generics.Util.Functions.HasValue ]}}({{[ {ctx.PatchDescriptor.ClassName}.Variables.ClientDevelopers ]}}, player.id) ||
+                                    player.ship == null ||
+                                    player.ship.engine.thrustEmitters == null ||
+                                    player.ship.engine.idleThrustEmitters == null)
+                                    continue;
+                                for each (var em:core.particle.Emitter in player.ship.engine.idleThrustEmitters) {{
+                                    em.startColor = 0xff0000;
+                                    em.finishColor = 0xff0000;
+                                    em.changeHue(colorRainbow);
+                                }}
+
+                                for each (var em:core.particle.Emitter in player.ship.engine.thrustEmitters) {{
+                                    em.startColor = 0xff0000;
+                                    em.finishColor = 0xff0000;
+                                    em.changeHue(colorRainbow);
+                                }}
+                            }}
+                        }}
+                    }}"
+                    .ExpandTags(ctx.GlobalPatchContext)
+                    .Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+Game\s+extends\s+SceneBase()",
+                    (info) => info.ScopeText.InsertTextAt(patchText, info.Length - 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
+                );
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("add_enter_frame_function_as_event_listener", "Add event frame function as event listener", ["add_enter_frame_function"])]
+        public class AddEventFrameFunctionAsEventListener(string id, string name, string[] dependencies, int priority) 
+            : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = 
+                    @$"addEventListener(""enterFrame"", {{[ {ctx.PatchDescriptor.ClassName}.Functions.EnterFrame ]}});"
+                    .ExpandTags(ctx.GlobalPatchContext)
+                    .Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+Game\s+extends\s+SceneBase{.*?(?=(?:public|private|protected|internal)\s+function\s+Game\s*\(.*?\)\s*)()",
+                    (info) => info.ScopeText.InsertTextAt(patchText, info.Length - 1),
                     (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
                 );
                 return new PatchResult(text);

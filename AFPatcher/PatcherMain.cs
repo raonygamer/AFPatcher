@@ -40,7 +40,7 @@ class PatcherMain
         Log.TraceLine($"Created instance of {context.FlattenedPatches.Count} patches.");
         
         // Create the dependency analyzer
-        var patchIdentifiers = new List<string>();
+        List<string> patchIdentifiers;
         var analyzer = new DependencyAnalyzer(context.FlattenedPatches);
         try
         {
@@ -53,6 +53,8 @@ class PatcherMain
         {
             // Print cyclic dependency traces
             Log.ErrorLine(e.Message);
+            Thread.Sleep(2000);
+            return;
         }
         
         // Print all the scripts to export
