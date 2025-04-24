@@ -15,7 +15,11 @@ namespace AFPatcher.Patches
                     {
                         { "ZoomFactor", "zoomFactor" },
                         { "ClientDevelopers", "clientDevelopers" },
-                        { "ServerClientTime", "serverClientTime" }
+                        { "ServerClientTime", "serverClientTime" },
+                        { "CurrentFitness", "currentFitness" },
+                        { "CurrentLines", "currentLines" },
+                        { "CurrentStrength", "currentStrength" },
+                        { "SharedObject", "sharedObject" }
                     } 
                 },
                 {
@@ -23,7 +27,9 @@ namespace AFPatcher.Patches
                     new Dictionary<string, string>
                     {
                         { "OpenPortableRecycle", "openPortableRecycle" },
-                        { "EnterFrame", "enterFrame" }
+                        { "EnterFrame", "enterFrame" },
+                        { "LoadSharedObject", "loadSharedObject" },
+                        { "SaveSharedObject", "saveSharedObject" }
                     }
                 },
                 { 
@@ -78,6 +84,16 @@ namespace AFPatcher.Patches
                         { "FitnessInput", "fitnessInput" },
                         { "LineInput", "lineInput" },
                         { "StrengthInput", "strengthInput" }
+                    }
+                },
+                {
+                    "core.artifact.ArtifactOverview.Functions",
+                    new Dictionary<string, string>
+                    {
+                        { "SavePurifySettings", "savePurifySettings" },
+                        { "PurifyArtifacts", "purifyArtifacts" },
+                        { "SendPurifyRecycle", "sendPurifyRecycle" },
+                        { "OnPurifyMessage", "onPurifyMessage" }
                     }
                 },
                 { "EchoFormat", "<font color='{0}'>QoLAF (Server {1} / {2})</font>" },

@@ -28,6 +28,175 @@ namespace AFPatcher.Patches
             }
         }
         
+        [Patch("add_current_fitness_variable", "Add current fitness variable", [])]
+        public class AddCurrentFitnessVariable(string id, string name, string[] dependencies, int priority) 
+            : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = 
+                    $"public var {{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentFitness ]}}:int = 110;"
+                        .ExpandTags(ctx.GlobalPatchContext)
+                        .Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+Game\s+extends\s+SceneBase()",
+                    (info) => info.ScopeText.InsertTextAt(patchText, 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
+                );
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("add_current_lines_variable", "Add current lines variable", [])]
+        public class AddCurrentLinesVariable(string id, string name, string[] dependencies, int priority) 
+            : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = 
+                    $"public var {{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentLines ]}}:int = 0;"
+                        .ExpandTags(ctx.GlobalPatchContext)
+                        .Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+Game\s+extends\s+SceneBase()",
+                    (info) => info.ScopeText.InsertTextAt(patchText, 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
+                );
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("add_current_strength_variable", "Add current strength variable", [])]
+        public class AddCurrentStrengthVariable(string id, string name, string[] dependencies, int priority) 
+            : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = 
+                    $"public var {{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentStrength ]}}:int = 90;"
+                        .ExpandTags(ctx.GlobalPatchContext)
+                        .Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+Game\s+extends\s+SceneBase()",
+                    (info) => info.ScopeText.InsertTextAt(patchText, 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
+                );
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("add_shared_object_variable", "Add shared object variable", [])]
+        public class AddSharedObjectVariable(string id, string name, string[] dependencies, int priority) 
+            : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = 
+                    $"public var {{[ {ctx.PatchDescriptor.ClassName}.Variables.SharedObject ]}}:flash.net.SharedObject;"
+                        .ExpandTags(ctx.GlobalPatchContext)
+                        .Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+Game\s+extends\s+SceneBase()",
+                    (info) => info.ScopeText.InsertTextAt(patchText, 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
+                );
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("initialize_shared_object_on_constructor", "Initialize shared object on constructor", ["add_shared_object_variable"])]
+        public class InitializeSharedObjectOnConstructor(string id, string name, string[] dependencies, int priority) 
+            : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = (@$"
+                    this.{{[ {ctx.PatchDescriptor.ClassName}.Variables.SharedObject ]}} = flash.net.SharedObject.getLocal(""customStorage"");
+                ")
+                    .ExpandTags(ctx.GlobalPatchContext)
+                    .Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+Game\s+extends\s+SceneBase\s*{.*?(?=(?:public|private|protected|internal)\s+function\s+Game\s*\(.*?\)\s*)()",
+                    (info) => info.ScopeText.InsertTextAt(patchText, 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
+                );
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("add_function_to_load_shared_object", "Add function to load shared object", [
+            "initialize_shared_object_on_constructor",
+            "add_current_fitness_variable",
+            "add_current_lines_variable",
+            "add_current_strength_variable"
+        ])]
+        public class AddFunctionToLoadSharedObject(string id, string name, string[] dependencies, int priority) 
+            : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = ($@"
+                    private function {{[ {ctx.PatchDescriptor.ClassName}.Functions.LoadSharedObject ]}}(): void {{
+						this.{{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentFitness ]}} = {{[ {ctx.PatchDescriptor.ClassName}.Variables.SharedObject ]}}.data.{{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentFitness ]}} == null ? 110 : {{[ {ctx.PatchDescriptor.ClassName}.Variables.SharedObject ]}}.data.{{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentFitness ]}};
+						this.{{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentLines ]}} = {{[ {ctx.PatchDescriptor.ClassName}.Variables.SharedObject ]}}.data.{{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentLines ]}} == null ? 0 : {{[ {ctx.PatchDescriptor.ClassName}.Variables.SharedObject ]}}.data.{{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentLines ]}};
+						this.{{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentStrength ]}} = {{[ {ctx.PatchDescriptor.ClassName}.Variables.SharedObject ]}}.data.{{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentStrength ]}} == null ? 90 : {{[ {ctx.PatchDescriptor.ClassName}.Variables.SharedObject ]}}.data.{{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentStrength ]}};
+					}}
+                ")
+                    .ExpandTags(ctx.GlobalPatchContext)
+                    .Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+Game\s+extends\s+SceneBase()",
+                    (info) => info.ScopeText.InsertTextAt(patchText, info.Length - 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
+                );
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("add_function_to_save_shared_object", "Add function to save shared object", [
+            "initialize_shared_object_on_constructor",
+            "add_current_fitness_variable",
+            "add_current_lines_variable",
+            "add_current_strength_variable"
+        ])]
+        public class AddFunctionToSaveSharedObject(string id, string name, string[] dependencies, int priority) 
+            : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = ($@"
+                    public function {{[ {ctx.PatchDescriptor.ClassName}.Functions.SaveSharedObject ]}}(): void {{
+						{{[ {ctx.PatchDescriptor.ClassName}.Variables.SharedObject ]}}.data.{{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentFitness ]}} = {{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentFitness ]}};
+						{{[ {ctx.PatchDescriptor.ClassName}.Variables.SharedObject ]}}.data.{{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentLines ]}} = {{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentLines ]}};
+						{{[ {ctx.PatchDescriptor.ClassName}.Variables.SharedObject ]}}.data.{{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentStrength ]}} = {{[ {ctx.PatchDescriptor.ClassName}.Variables.CurrentStrength ]}};
+						{{[ {ctx.PatchDescriptor.ClassName}.Variables.SharedObject ]}}.flush();
+					}}
+                ")
+                    .ExpandTags(ctx.GlobalPatchContext)
+                    .Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+Game\s+extends\s+SceneBase()",
+                    (info) => info.ScopeText.InsertTextAt(patchText, info.Length - 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
+                );
+                return new PatchResult(text);
+            }
+        }
+        
         [Patch("add_server_client_time_variable", "Add server client time variable", [])]
         public class AddServerClientTimeVariable(string id, string name, string[] dependencies, int priority) 
             : PatchBase(id, name, dependencies, priority)
@@ -178,6 +347,26 @@ namespace AFPatcher.Patches
                 Scope.Modify(
                     text,
                     @"public\s+class\s+Game\s+extends\s+SceneBase()",
+                    (info) => info.ScopeText.InsertTextAt(patchText, info.Length - 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
+                );
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("add_load_shared_object_function_to_init", "Add load shared object function to init", ["add_function_to_load_shared_object"])]
+        public class AddLoadSharedObjectFunctionToInit(string id, string name, string[] dependencies, int priority)
+            : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = $"{{[ {ctx.PatchDescriptor.ClassName}.Functions.LoadSharedObject ]}}();"
+                    .ExpandTags(ctx.GlobalPatchContext)
+                    .Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+Game\s+extends\s+SceneBase{.*?(?=override\s+(?:public|private|protected|internal)\s+function\s+init\s*\(.*?\)\s*:\s*\w+)()",
                     (info) => info.ScopeText.InsertTextAt(patchText, info.Length - 1),
                     (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
                 );
