@@ -36,7 +36,8 @@ namespace AFPatcher.Patches
                     "core.states.gameStates.PlayState.Functions", 
                     new Dictionary<string, string>
                     {
-                        { "CheckZoomFactor", "checkZoomFactor" }
+                        { "CheckZoomFactor", "checkZoomFactor" },
+                        { "CheckCustomCommands", "checkCustomCommands" }
                     } 
                 },
                 { 
@@ -99,16 +100,16 @@ namespace AFPatcher.Patches
                 { "EchoFormat", "<font color='{0}'>QoLAF (Server {1} / {2})</font>" },
                 { "EchoColor", "#ff6200" },
                 { "ServerVersion", 1389 },
-                { "ClientVersion", "INDEV" },
+                { "ClientVersion", "v1.0.52 LS" },
                 { 
                     "Developers", 
                     new Dictionary<string, string>()
                     {
-                        { "ryd3v", "steam76561199032900322" },
-                        { "TheRealPancake", "steam76561198188053594" },
-                        { "Kaiser/Primiano", "" },
+                        { "mufenz", "" },
                         { "TheLostOne", "simple1622136353425" },
-                        { "mufenz", "" }
+                        { "Kaiser/Primiano", "" },
+                        { "TheRealPancake", "steam76561198188053594" },
+                        { "ryd3v", "steam76561199032900322" }
                     }
                 },
                 { "UpgradeAnimationTimeReduction", 1.0 - 85.0 / 100.0 } // 85%

@@ -15,10 +15,35 @@ namespace AFPatcher.Patches
             public override PatchResult Apply(PatchContext ctx)
             {
                 var text = ctx.Text;
+                var patchText = ($@"
+                    {{[ {ctx.PatchDescriptor.ClassName}.Functions.CheckZoomFactor ]}}();
+                ")
+                    .ExpandTags(ctx.GlobalPatchContext)
+                    .Flatten();
                 Scope.Modify(
                     text,
                     @"public\s+class\s+PlayState\s+extends\s+GameState{.*?(?=public\s+function\s+updateCommands\s*\(.*?\)\s*:\s*\w+)()",
-                    (info) => info.ScopeText.InsertTextAtGroupIndex($"{{[ {ctx.PatchDescriptor.ClassName}.Functions.CheckZoomFactor ]}}();".ExpandTags(ctx.GlobalPatchContext), @"(?:this.)?checkAccelerate\(\);()if\(!_loc\d+_\.isTeleporting\s*&&\s*!_loc\d+_\.usingBoost\)"),
+                    (info) => info.ScopeText.InsertTextAtGroupIndex(patchText, @"()if\(!_loc\d+_\.isTeleporting\s*&&\s*!_loc\d+_\.usingBoost\)"),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText));
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("call_check_custom_commands_function_on_update_commands", "Call check custom commands function on updateCommands function", ["add_check_custom_commands_function"])]
+        public class AddCheckCustomCommandsCallOnUpdateCommands(string id, string name, string[] dependencies, int priority) : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = ($@"
+                    {{[ {ctx.PatchDescriptor.ClassName}.Functions.CheckCustomCommands ]}}();
+                ")
+                    .ExpandTags(ctx.GlobalPatchContext)
+                    .Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+PlayState\s+extends\s+GameState{.*?(?=public\s+function\s+updateCommands\s*\(.*?\)\s*:\s*\w+)()",
+                    (info) => info.ScopeText.InsertTextAtGroupIndex(patchText, @"()if\(!_loc\d+_\.isTeleporting\s*&&\s*!_loc\d+_\.usingBoost\)"),
                     (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText));
                 return new PatchResult(text);
             }
@@ -49,6 +74,31 @@ namespace AFPatcher.Patches
                     $"    }}" +
                     $"}}")
                     .ExpandTags(ctx.GlobalPatchContext).Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+PlayState\s+extends\s+GameState()",
+                    (info) => info.ScopeText.InsertTextAt(patchText, info.Length - 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText));
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("add_check_custom_commands_function", "Add function for checking custom commands", [])]
+        public class AddCheckCustomCommandsFunction(string id, string name, string[] dependencies, int priority) : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = ($@"
+                    public function {{[ {ctx.PatchDescriptor.ClassName}.Functions.CheckCustomCommands ]}}(): void {{
+                        if (input.isKeyDown(17) && input.isKeyPressed(82)) {{
+                            core.hud.components.chat.MessageLog.writeChatMsg(""death"",""Reloading system."");
+                            starling.core.Starling.juggler.delayCall(g.reload, 0.25);
+                        }}
+                    }}
+                ")
+                    .ExpandTags(ctx.GlobalPatchContext)
+                    .Flatten();
                 Scope.Modify(
                     text,
                     @"public\s+class\s+PlayState\s+extends\s+GameState()",

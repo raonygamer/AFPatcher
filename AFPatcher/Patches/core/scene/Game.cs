@@ -1,4 +1,5 @@
-﻿using AFPatcher.Patching;
+﻿using System.Text.RegularExpressions;
+using AFPatcher.Patching;
 using AFPatcher.Utility;
 using Patching.Utility;
 
@@ -368,6 +369,23 @@ namespace AFPatcher.Patches
                     text,
                     @"public\s+class\s+Game\s+extends\s+SceneBase{.*?(?=override\s+(?:public|private|protected|internal)\s+function\s+init\s*\(.*?\)\s*:\s*\w+)()",
                     (info) => info.ScopeText.InsertTextAt(patchText, info.Length - 1),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
+                );
+                return new PatchResult(text);
+            }
+        }
+        
+        [Patch("change_reload_function_access_modifier_to_public", "Change reload function access modifier to public", [])]
+        public class ChangeReloadFunctionAccessModifierToPublic(string id, string name, string[] dependencies, int priority)
+            : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+Game\s+extends\s+SceneBase()",
+                    (info) => Regex.Replace(info.ScopeText, @"(?:private|protected|internal)\s+function\s+reload", "public function reload"),
                     (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText)
                 );
                 return new PatchResult(text);

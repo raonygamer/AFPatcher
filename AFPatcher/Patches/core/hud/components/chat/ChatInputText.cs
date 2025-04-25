@@ -65,5 +65,30 @@ namespace AFPatcher.Patches
                 return new PatchResult(text);
             }
         }
+        
+        [Patch("add_reload_command", "Add /reload,/rel,/refresh,/ref command", ["change_reload_function_access_modifier_to_public"])]
+        public class AddReloadCommand(string id, string name, string[] dependencies, int priority) : PatchBase(id, name, dependencies, priority)
+        {
+            public override PatchResult Apply(PatchContext ctx)
+            {
+                var text = ctx.Text;
+                var patchText = ($@"
+                    case ""rel"":
+                    case ""reload"":
+                    case ""ref"":
+                    case ""refresh"":
+                        MessageLog.writeChatMsg(""death"",""Reloading system."");
+                        starling.core.Starling.juggler.delayCall(g.reload, 0.25);
+						break;
+                    ")
+                    .ExpandTags(ctx.GlobalPatchContext).Flatten();
+                Scope.Modify(
+                    text,
+                    @"public\s+class\s+ChatInputText\s+extends\s+Sprite\s*{.*?(?=private\s+function\s+sendMessage\s*\(.*?\)\s*:\s*\w+)()",
+                    (info) => info.ScopeText.InsertTextAtGroupIndex(patchText, @"(?:.*)\s*=\s*parseCommand\((?:.*)\);\s*switch\((?:.*)\[0\]\)\s*{()"),
+                    (oldInfo, newInfo) => text = text.ReplaceFirst(oldInfo.ScopeText, newInfo.ScopeText));
+                return new PatchResult(text);
+            }
+        }
     }
 }
