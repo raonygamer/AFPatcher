@@ -148,8 +148,8 @@ class AFPatcher
                 { "LOAD_SHARED_OBJ", "loadSharedObj" },
                 { "SET_PURIFY_STATS", "setPurifyStats" },
                 { "OPEN_PORTABLE_RECYCLE", "openPortableRecycle" },
-                { "SERVER_VERSION", 1389 },
-                { "CLIENT_VERSION", "1.0.5 LS" },
+                { "SERVER_VERSION", 1390 },
+                { "CLIENT_VERSION", "1.0.51 LS" },
                 { 
 	                "DEVELOPERS", 
 	                new Dictionary<string, string>()
@@ -423,6 +423,7 @@ class AFPatcher
                         {
                             // Sets the position to the end of the match
                             var position = match.Index + match.Length;
+                            flatScript = Regex.Replace(flatScript, @"private\s+function\s+reload", "public function reload");
                             
                             // Splits the first and the last part of the script text to insert text in between
                             var firstPart = flatScript.Substring(0, position);
@@ -2139,6 +2140,9 @@ class AFPatcher
 							break;
 						case ""echo"":
 							MessageLog.writeChatMsg(""death"",""Your client is: {string.Format(echoFormat!, echoColor, serverVersion, clientVersion)}"");
+							break;
+						case ""ref"":
+							starling.core.Starling.juggler.delayCall(g.reload, 0.5);
 							break;
 					");
 
