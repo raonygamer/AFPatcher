@@ -146,8 +146,8 @@ class AFPatcher
                 { "LOAD_SHARED_OBJ", "loadSharedObj" },
                 { "SET_PURIFY_STATS", "setPurifyStats" },
                 { "OPEN_PORTABLE_RECYCLE", "openPortableRecycle" },
-                { "SERVER_VERSION", 1392 },
-                { "CLIENT_VERSION", "1.0.51 LS" },
+                { "SERVER_VERSION", 1393 },
+                { "CLIENT_VERSION", "1.0.54 FINAL" },
                 { 
 	                "DEVELOPERS", 
 	                new Dictionary<string, string>()
@@ -170,7 +170,7 @@ class AFPatcher
                 { "DELTA_TIME", "deltaTime" },
                 { "CLIENT_DEV_HUE_COLOR", "clientDevHueColor" },
                 { "ENGINE_COLOR", "engineColor" },
-                { "ECHO_COLOR", "#ff4400" },
+                { "ECHO_COLOR", "#ff00bf" },
                 { "DETERMINED_COLOR", "determinedColor" },
                 { "DETERMINED_HUE", "determinedHue" },
                 { "ECHO_FORMAT", "<font color='{0}'>QoLAF (Server {1} / v{2})</font>" }
@@ -2742,7 +2742,7 @@ class AFPatcher
 			                var projectileDbObjLocalIndex = "0";
 			                var projectileObjLocalIndex = "0";
 			                {
-				                var anchorMatch = Regex.Match(scopeText, @"_loc(\d+)_\.blendMode\s*=\s*_loc(\d+)_\.blendMode;()if\s*\(_loc12_\.hasOwnProperty\(""aiAlwaysExplode""\)\)");
+				                var anchorMatch = Regex.Match(scopeText, @"_loc(\d+)_\.blendMode\s*=\s*_loc(\d+)_\.blendMode;()if\s*\(_loc(\d+)_\.hasOwnProperty\(""aiAlwaysExplode""\)\)");
 				                if (!anchorMatch.Success)
 					                return null;
 				                projectileObjLocalIndex = anchorMatch.Groups[1].Value;

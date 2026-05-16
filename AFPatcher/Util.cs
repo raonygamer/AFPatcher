@@ -1,5 +1,6 @@
-﻿using System.Diagnostics;
-using AFPatcher.Models;
+﻿using AFPatcher.Models;
+using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace AFPatcher;
 
@@ -15,7 +16,8 @@ public class Util
 {
     public static string FlattenString(string str)
     {
-        return str.Replace("\r\n", "").Replace("\r", "").Replace("\t", "");
+        return Regex.Replace(str, @"^\s+", "", RegexOptions.Multiline)
+            .Replace("\r\n", "").Replace("\r", "").Replace("\n", "").Replace("\t", "");
     }
 
     public static Process? InvokeFFDec(params string[] arguments)
